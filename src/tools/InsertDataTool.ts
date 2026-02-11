@@ -1,5 +1,5 @@
-import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { getSqlRequest } from "../db.js";
 export class InsertDataTool implements Tool {
   [key: string]: any;
   name = "insert_data";
@@ -66,12 +66,22 @@ IMPORTANT RULES:
           }
         ]
       },
+      databaseName: {
+        type: "string",
+        description: "Name of the database to use (optional). Omit to use the default database."
+      },
     },
     required: ["tableName", "data"],
   } as any;
   async run(params: any) {
     try {
-      const { tableName, data } = params;
+      const { tableName, data, databaseName } = params;
+
+      const { request, error } = await getSqlRequest(databaseName);
+      if (error) {
+        return { success: false, message: error };
+      }
+
       // Check if data is an array (multiple records) or single object
       const isMultipleRecords = Array.isArray(data);
       const records = isMultipleRecords ? data : [data];
@@ -93,7 +103,6 @@ IMPORTANT RULES:
         }
       }
       const columns = firstRecordColumns.join(", ");
-      const request = new sql.Request();
       if (isMultipleRecords) {
         // Multiple records insert using VALUES clause - works for 1 or more records
         const valueClauses: string[] = [];

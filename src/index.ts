@@ -2,7 +2,6 @@
 
 // External imports
 import * as dotenv from 'dotenv';
-import sql from 'mssql';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -16,37 +15,6 @@ import { CreateIndexTool } from './tools/CreateIndexTool.js';
 import { ListTableTool } from './tools/ListTableTool.js';
 import { DropTableTool } from './tools/DropTableTool.js';
 import { DescribeTableTool } from './tools/DescribeTableTool.js';
-
-// MSSQL Database connection configuration
-
-// Globals for connection and token reuse
-let globalSqlPool: sql.ConnectionPool | null = null;
-let globalAccessToken: string | null = null;
-let globalTokenExpiresOn: Date | null = null;
-
-// Function to create SQL config for local MSSQL
-export async function createSqlConfig(): Promise<{ config: sql.config; token: string; expiresOn: Date }> {
-    const trustServerCertificate = process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === 'true';
-    const connectionTimeout = process.env.CONNECTION_TIMEOUT ? parseInt(process.env.CONNECTION_TIMEOUT, 10) : 30;
-
-    return {
-        config: {
-            server: process.env.SERVER_NAME || 'localhost',
-            database: process.env.DATABASE_NAME!,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            options: {
-                encrypt: false,
-                trustServerCertificate: trustServerCertificate || true,
-                enableArithAbort: true,
-                useUTC: false,
-            },
-            connectionTimeout: connectionTimeout * 1000,
-        } as any,
-        token: 'sql-auth',
-        expiresOn: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    };
-}
 
 const updateDataTool = new UpdateDataTool();
 const insertDataTool = new InsertDataTool();
@@ -113,7 +81,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         isError: true,
                     };
                 }
-                result = await describeTableTool.run(args as { tableName: string });
+                result = await describeTableTool.run(args as { tableName: string; databaseName?: string });
                 break;
             default:
                 return {
@@ -148,40 +116,4 @@ runServer().catch((error) => {
     process.exit(1);
 });
 
-// Connect to SQL only when handling a request
-
-async function ensureSqlConnection() {
-    // If we have a pool and it's connected, and the token is still valid, reuse it
-    if (
-        globalSqlPool &&
-        globalSqlPool.connected &&
-        globalAccessToken &&
-        globalTokenExpiresOn &&
-        globalTokenExpiresOn > new Date(Date.now() + 2 * 60 * 1000) // 2 min buffer
-    ) {
-        return;
-    }
-
-    // Otherwise, get a new token and reconnect
-    const { config, token, expiresOn } = await createSqlConfig();
-    globalAccessToken = token;
-    globalTokenExpiresOn = expiresOn;
-
-    // Close old pool if exists
-    if (globalSqlPool && globalSqlPool.connected) {
-        await globalSqlPool.close();
-    }
-
-    globalSqlPool = await sql.connect(config);
-}
-
-// Patch all tool handlers to ensure SQL connection before running
-function wrapToolRun(tool: { run: (...args: any[]) => Promise<any> }) {
-    const originalRun = tool.run.bind(tool);
-    tool.run = async function (...args: any[]) {
-        await ensureSqlConnection();
-        return originalRun(...args);
-    };
-}
-
-[insertDataTool, readDataTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, describeTableTool].forEach(wrapToolRun);
+// Tools call getSqlRequest(databaseName) internally - no wrapping needed

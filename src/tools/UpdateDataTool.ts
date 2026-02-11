@@ -1,5 +1,5 @@
-import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { getSqlRequest } from "../db.js";
 
 export class UpdateDataTool implements Tool {
   [key: string]: any;
@@ -20,6 +20,10 @@ export class UpdateDataTool implements Tool {
         type: "string", 
         description: "WHERE clause to identify which records to update. Example: \"genre = 'comedy' AND created_date <= '2025-07-05'\"" 
       },
+      databaseName: {
+        type: "string",
+        description: "Name of the database to use (optional). Omit to use the default database."
+      },
     },
     required: ["tableName", "updates", "whereClause"],
   } as any;
@@ -27,14 +31,17 @@ export class UpdateDataTool implements Tool {
   async run(params: any) {
     let query: string | undefined;
     try {
-      const { tableName, updates, whereClause } = params;
+      const { tableName, updates, whereClause, databaseName } = params;
+
+      const { request, error } = await getSqlRequest(databaseName);
+      if (error) {
+        return { success: false, message: error };
+      }
       
       // Basic validation: ensure whereClause is not empty
       if (!whereClause || whereClause.trim() === '') {
         throw new Error("WHERE clause is required for security reasons");
       }
-
-      const request = new sql.Request();
       
       // Build SET clause with parameterized queries for security
       const setClause = Object.keys(updates)

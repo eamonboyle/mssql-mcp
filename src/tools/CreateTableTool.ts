@@ -1,5 +1,5 @@
-import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { getSqlRequest } from "../db.js";
 
 export class CreateTableTool implements Tool {
   [key: string]: any;
@@ -20,20 +20,30 @@ export class CreateTableTool implements Tool {
           },
           required: ["name", "type"]
         }
-      }
+      },
+      databaseName: {
+        type: "string",
+        description: "Name of the database to use (optional). Omit to use the default database."
+      },
     },
     required: ["tableName", "columns"],
   } as any;
 
   async run(params: any) {
     try {
-      const { tableName, columns } = params;
+      const { tableName, columns, databaseName } = params;
+
+      const { request, error } = await getSqlRequest(databaseName);
+      if (error) {
+        return { success: false, message: error };
+      }
+
       if (!Array.isArray(columns) || columns.length === 0) {
         throw new Error("'columns' must be a non-empty array");
       }
       const columnDefs = columns.map((col: any) => `[${col.name}] ${col.type}`).join(", ");
       const query = `CREATE TABLE [${tableName}] (${columnDefs})`;
-      await new sql.Request().query(query);
+      await request.query(query);
       return {
         success: true,
         message: `Table '${tableName}' created successfully.`

@@ -141,11 +141,33 @@ This server leverages the Model Context Protocol (MCP), a versatile framework th
 ### Configuration Parameters
 
 - **SERVER_NAME**: Your MSSQL Database server name (e.g., `my-server.database.windows.net`)
-- **DATABASE_NAME**: Your database name
+- **DATABASE_NAME**: Your default database name (used when `databaseName` is omitted from tool calls)
+- **DATABASES**: (Optional) Comma-separated list of database names allowed for multi-database access (e.g., `ProdDB,StagingDB,AnalyticsDB`). When set, the AI can pass a `databaseName` parameter to tools to target a specific database. When omitted, only `DATABASE_NAME` is available.
 - **READONLY**: Set to `"true"` to restrict to read-only operations, `"false"` for full access
 - **Path**: Update the path in `args` to point to your actual project location.
 - **CONNECTION_TIMEOUT**: (Optional) Connection timeout in seconds. Defaults to `30` if not set.
 - **TRUST_SERVER_CERTIFICATE**: (Optional) Set to `"true"` to trust self-signed server certificates (useful for development or when connecting to servers with self-signed certs). Defaults to `"false"`.
+
+### Multi-Database Support
+
+To connect to multiple databases on the same SQL Server:
+
+1. Set **DATABASES** in your env config (e.g., `DATABASES=ProdDB,StagingDB,AnalyticsDB`)
+2. Set **DATABASE_NAME** to your default database (used when no database is specified)
+3. The AI will pass a `databaseName` parameter when calling tools to target a specific database
+
+Example config with multiple databases:
+
+```json
+"env": {
+  "SERVER_NAME": "your-server.database.windows.net",
+  "DATABASE_NAME": "ProdDB",
+  "DATABASES": "ProdDB,StagingDB,AnalyticsDB",
+  "READONLY": "false"
+}
+```
+
+All tools (`read_data`, `insert_data`, `update_data`, `create_table`, `create_index`, `drop_table`, `list_table`, `describe_table`) accept an optional `databaseName` parameter. When omitted, the default `DATABASE_NAME` is used.
 
 ## Sample Configurations
 

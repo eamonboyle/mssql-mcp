@@ -1,5 +1,6 @@
 import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { getSqlRequest } from "../db.js";
 
 export class ReadDataTool implements Tool {
   [key: string]: any;
@@ -12,6 +13,10 @@ export class ReadDataTool implements Tool {
       query: { 
         type: "string", 
         description: "SQL SELECT query to execute (must start with SELECT and cannot contain destructive operations). Example: SELECT * FROM movies WHERE genre = 'comedy'" 
+      },
+      databaseName: {
+        type: "string",
+        description: "Name of the database to query (optional). Omit to use the default database."
       },
     },
     required: ["query"],
@@ -205,7 +210,12 @@ export class ReadDataTool implements Tool {
    */
   async run(params: any) {
     try {
-      const { query } = params;
+      const { query, databaseName } = params;
+
+      const { request, error } = await getSqlRequest(databaseName);
+      if (error) {
+        return { success: false, message: error, error: "INVALID_DATABASE" };
+      }
       
       // Validate the query for security issues
       const validation = this.validateQuery(query);
@@ -222,7 +232,6 @@ export class ReadDataTool implements Tool {
       console.log(`Executing validated SELECT query: ${query.substring(0, 200)}${query.length > 200 ? '...' : ''}`);
 
       // Execute the query
-      const request = new sql.Request();
       const result = await request.query(query);
       
       // Sanitize the result

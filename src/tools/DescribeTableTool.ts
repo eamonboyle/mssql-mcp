@@ -1,6 +1,6 @@
 import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
-
+import { getSqlRequest } from "../db.js";
 
 export class DescribeTableTool implements Tool {
   [key: string]: any;
@@ -10,14 +10,22 @@ export class DescribeTableTool implements Tool {
     type: "object",
     properties: {
       tableName: { type: "string", description: "Name of the table to describe" },
+      databaseName: {
+        type: "string",
+        description: "Name of the database to use (optional). Omit to use the default database."
+      },
     },
     required: ["tableName"],
   } as any;
 
-  async run(params: { tableName: string }) {
+  async run(params: { tableName: string; databaseName?: string }) {
     try {
-      const { tableName } = params;
-      const request = new sql.Request();
+      const { tableName, databaseName } = params;
+
+      const { request, error } = await getSqlRequest(databaseName);
+      if (error) {
+        return { success: false, message: error };
+      }
       const query = `SELECT COLUMN_NAME as name, DATA_TYPE as type FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @tableName`;
       request.input("tableName", sql.NVarChar, tableName);
       const result = await request.query(query);

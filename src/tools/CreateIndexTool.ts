@@ -1,5 +1,5 @@
-import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { getSqlRequest } from "../db.js";
 
 export class CreateIndexTool implements Tool {
   [key: string]: any;
@@ -26,29 +26,37 @@ export class CreateIndexTool implements Tool {
         description: "Whether the index should be clustered (default: false)",
         default: false
       },
+      databaseName: {
+        type: "string",
+        description: "Name of the database to use (optional). Omit to use the default database."
+      },
     },
     required: ["tableName", "indexName", "columns"],
   } as any;
 
   async run(params: any) {
     try {
-      const { schemaName, tableName, indexName, columns, isUnique = false, isClustered = false } = params;
+      const { schemaName, tableName, indexName, columns, databaseName, isUnique = false, isClustered = false } = params;
+
+      const { request, error } = await getSqlRequest(databaseName);
+      if (error) {
+        return { success: false, message: error };
+      }
 
       let indexType = isClustered ? "CLUSTERED" : "NONCLUSTERED";
       if (isUnique) {
         indexType = `UNIQUE ${indexType}`;
       }
       const columnNames = columns.join(", ");
-
-      const request = new sql.Request();
-      const query = `CREATE ${indexType} INDEX ${indexName} ON ${schemaName}.${tableName} (${columnNames})`;
+      const tableRef = schemaName ? `${schemaName}.${tableName}` : tableName;
+      const query = `CREATE ${indexType} INDEX ${indexName} ON ${tableRef} (${columnNames})`;
       await request.query(query);
       
       return {
         success: true,
-        message: `Index [${indexName}] created successfully on table [${schemaName}.${tableName}]`,
+        message: `Index [${indexName}] created successfully on table [${tableRef}]`,
         details: {
-          schemaName,
+          schemaName: schemaName || undefined,
           tableName,
           indexName,
           columnNames,
