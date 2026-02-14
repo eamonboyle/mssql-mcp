@@ -1,173 +1,28 @@
-import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getSqlRequest } from "../db.js";
+import { validateReadQuery } from "../validation.js";
 
 export class ReadDataTool implements Tool {
   [key: string]: any;
   name = "read_data";
   description = "Executes a SELECT query on an MSSQL Database table. The query must start with SELECT and cannot contain any destructive SQL operations for security reasons.";
-  
+
   inputSchema = {
     type: "object",
     properties: {
-      query: { 
-        type: "string", 
-        description: "SQL SELECT query to execute (must start with SELECT and cannot contain destructive operations). Example: SELECT * FROM movies WHERE genre = 'comedy'" 
+      query: {
+        type: "string",
+        description:
+          "SQL SELECT query to execute (must start with SELECT and cannot contain destructive operations). Example: SELECT * FROM movies WHERE genre = 'comedy'",
       },
       databaseName: {
         type: "string",
-        description: "Name of the database to query (optional). Omit to use the default database."
+        description:
+          "Name of the database to query (optional). Omit to use the default database.",
       },
     },
     required: ["query"],
   } as any;
-
-  // List of dangerous SQL keywords that should not be allowed
-  private static readonly DANGEROUS_KEYWORDS = [
-    'DELETE', 'DROP', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 
-    'TRUNCATE', 'EXEC', 'EXECUTE', 'MERGE', 'REPLACE',
-    'GRANT', 'REVOKE', 'COMMIT', 'ROLLBACK', 'TRANSACTION',
-    'BEGIN', 'DECLARE', 'SET', 'USE', 'BACKUP',
-    'RESTORE', 'KILL', 'SHUTDOWN', 'WAITFOR', 'OPENROWSET',
-    'OPENDATASOURCE', 'OPENQUERY', 'OPENXML', 'BULK', 'INTO'
-  ];
-
-  // Regex patterns to detect common SQL injection techniques
-  private static readonly DANGEROUS_PATTERNS = [
-
-    // SELECT INTO operations that create new tables
-    /SELECT\s+.*?\s+INTO\s+/i,
-    // Semicolon followed by dangerous keywords
-    /;\s*(DELETE|DROP|UPDATE|INSERT|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|MERGE|REPLACE|GRANT|REVOKE)/i,
-    
-    // UNION injection attempts with dangerous keywords
-    /UNION\s+(?:ALL\s+)?SELECT.*?(DELETE|DROP|UPDATE|INSERT|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE)/i,
-    
-    // Comment-based injection attempts
-    /--.*?(DELETE|DROP|UPDATE|INSERT|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE)/i,
-    /\/\*.*?(DELETE|DROP|UPDATE|INSERT|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE).*?\*\//i,
-    
-    // Stored procedure execution patterns
-    /EXEC\s*\(/i,
-    /EXECUTE\s*\(/i,
-    /sp_/i,
-    /xp_/i,
-    
-    // Dynamic SQL construction
-    /EXEC\s*\(/i,
-    /EXECUTE\s*\(/i,
-    
-    // Bulk operations
-    /BULK\s+INSERT/i,
-    /OPENROWSET/i,
-    /OPENDATASOURCE/i,
-    
-    // System functions that could be dangerous
-    /@@/,
-    /SYSTEM_USER/i,
-    /USER_NAME/i,
-    /DB_NAME/i,
-    /HOST_NAME/i,
-    
-    // Time delay attacks
-    /WAITFOR\s+DELAY/i,
-    /WAITFOR\s+TIME/i,
-    
-    // Multiple statements (semicolon not at end)
-    /;\s*\w/,
-    
-    // String concatenation that might hide malicious code
-    /\+\s*CHAR\s*\(/i,
-    /\+\s*NCHAR\s*\(/i,
-    /\+\s*ASCII\s*\(/i,
-  ];
-
-  /**
-   * Validates the SQL query for security issues
-   * @param query The SQL query to validate
-   * @returns Validation result with success flag and error message if invalid
-   */
-  private validateQuery(query: string): { isValid: boolean; error?: string } {
-    if (!query || typeof query !== 'string') {
-      return { 
-        isValid: false, 
-        error: 'Query must be a non-empty string' 
-      };
-    }
-
-    // Remove comments and normalize whitespace for analysis
-    const cleanQuery = query
-      .replace(/--.*$/gm, '') // Remove line comments
-      .replace(/\/\*[\s\S]*?\*\//g, '') // Remove block comments
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .trim();
-
-    if (!cleanQuery) {
-      return { 
-        isValid: false, 
-        error: 'Query cannot be empty after removing comments' 
-      };
-    }
-
-    const upperQuery = cleanQuery.toUpperCase();
-
-    // Must start with SELECT
-    if (!upperQuery.startsWith('SELECT')) {
-      return { 
-        isValid: false, 
-        error: 'Query must start with SELECT for security reasons' 
-      };
-    }
-
-    // Check for dangerous keywords in the cleaned query using word boundaries
-    for (const keyword of ReadDataTool.DANGEROUS_KEYWORDS) {
-      // Use word boundary regex to match only complete keywords, not parts of words
-      const keywordRegex = new RegExp(`(^|\\s|[^A-Za-z0-9_])${keyword}($|\\s|[^A-Za-z0-9_])`, 'i');
-      if (keywordRegex.test(upperQuery)) {
-        return { 
-          isValid: false, 
-          error: `Dangerous keyword '${keyword}' detected in query. Only SELECT operations are allowed.` 
-        };
-      }
-    }
-
-    // Check for dangerous patterns using regex
-    for (const pattern of ReadDataTool.DANGEROUS_PATTERNS) {
-      if (pattern.test(query)) {
-        return { 
-          isValid: false, 
-          error: 'Potentially malicious SQL pattern detected. Only simple SELECT queries are allowed.' 
-        };
-      }
-    }
-
-    // Additional validation: Check for multiple statements
-    const statements = cleanQuery.split(';').filter(stmt => stmt.trim().length > 0);
-    if (statements.length > 1) {
-      return { 
-        isValid: false, 
-        error: 'Multiple SQL statements are not allowed. Use only a single SELECT statement.' 
-      };
-    }
-
-    // Check for suspicious string patterns that might indicate obfuscation
-    if (query.includes('CHAR(') || query.includes('NCHAR(') || query.includes('ASCII(')) {
-      return { 
-        isValid: false, 
-        error: 'Character conversion functions are not allowed as they may be used for obfuscation.' 
-      };
-    }
-
-    // Limit query length to prevent potential DoS
-    if (query.length > 10000) {
-      return { 
-        isValid: false, 
-        error: 'Query is too long. Maximum allowed length is 10,000 characters.' 
-      };
-    }
-
-    return { isValid: true };
-  }
 
   /**
    * Sanitizes the query result to prevent any potential security issues
@@ -218,7 +73,7 @@ export class ReadDataTool implements Tool {
       }
       
       // Validate the query for security issues
-      const validation = this.validateQuery(query);
+      const validation = validateReadQuery(query);
       if (!validation.isValid) {
         console.warn(`Security validation failed for query: ${query.substring(0, 100)}...`);
         return {

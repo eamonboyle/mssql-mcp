@@ -189,7 +189,7 @@ Once configured, you can ask things like:
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. By participating, you agree to uphold our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
