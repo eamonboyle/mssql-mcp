@@ -3,8 +3,8 @@
     "servers": {
       "mssql": {
         "type": "stdio",
-        "command": "node",
-        "args": ["/path/to/mssql-mcp/dist/index.js"],
+        "command": "npx",
+        "args": ["-y", "@eamonboyle/mssql-mcp"],
         "env": {
           "SERVER_NAME": "localhost",
           "DATABASE_NAME": "YourDatabase",

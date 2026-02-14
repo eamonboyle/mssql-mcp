@@ -10,7 +10,7 @@ We provide security updates for the latest release. Please upgrade to the newest
 
 If you discover a security issue, please report it privately by:
 
-1. Opening a [Security Advisory](https://github.com/your-username/mssql-mcp/security/advisories/new) (if you have access), or
+1. Opening a [Security Advisory](https://github.com/eamonboyle/mssql-mcp/security/advisories/new) (if you have access), or
 2. Contacting the maintainers through GitHub (see the repository owner)
 
 Include a description of the vulnerability, steps to reproduce, and any suggested fix. We will respond as soon as possible and work with you on a resolution.

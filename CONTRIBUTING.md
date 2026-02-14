@@ -44,4 +44,4 @@ The project uses TypeScript. Source files are in `src/`, compiled output goes to
 
 ## Questions?
 
-Open a [Discussion](https://github.com/your-username/mssql-mcp/discussions) or an issue if you have questions.
+Open a [Discussion](https://github.com/eamonboyle/mssql-mcp/discussions) or an issue if you have questions.

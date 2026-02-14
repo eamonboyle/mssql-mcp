@@ -1,9 +1,29 @@
 {
-  "name": "mssql-mcp-server",
+  "name": "@eamonboyle/mssql-mcp",
   "version": "1.0.0",
+  "description": "MCP server for Microsoft SQL Server - query and manage your database with natural language in Cursor, Claude, and VS Code",
+  "keywords": [
+    "mcp",
+    "mssql",
+    "sql-server",
+    "database",
+    "model-context-protocol",
+    "cursor",
+    "claude",
+    "vscode"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eamonboyle/mssql-mcp.git"
+  },
+  "homepage": "https://github.com/eamonboyle/mssql-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/eamonboyle/mssql-mcp/issues"
+  },
   "main": "dist/index.js",
   "bin": {
-    "mssql-mcp-server": "dist/index.js"
+    "mssql-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "tsc && shx chmod +x dist/*.js",
@@ -14,6 +34,9 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "devDependencies": {
     "@types/mssql": "^9.1.7",
     "@types/node": "^16.7.13",
@@ -21,8 +44,6 @@
     "typescript": "^4.9.5"
   },
   "dependencies": {
-    "@azure/identity": "^4.8.0",
-    "@azure/msal-node": "^3.8.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "dotenv": "^10.0.0",
     "mssql": "^11.0.1"

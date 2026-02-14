@@ -3,8 +3,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 
-[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](cursor://anysphere.cursor-deeplink/mcp/install?name=MSSQL&config=eyJjb21tYW5kIjoibm9kZSIsImFyZ3MiOlsiL3BhdGgvdG8vbXNzcWwtbWNwL2Rpc3QvaW5kZXguanMiXSwiZW52Ijp7IlNFUlZFUl9OQU1FIjoibG9jYWxob3N0IiwiREFUQUJBU0VfTkFNRSI6IllvdXJEYXRhYmFzZSIsIkRCX1VTRVIiOiIiLCJEQl9QQVNTV09SRCI6IiIsIlJFQURPTkxZIjoiZmFsc2UifX0=)
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](vscode://mcp/install?%7B%22name%22%3A%22mssql%22%2C%22type%22%3A%22stdio%22%2C%22command%22%3A%22node%22%2C%22args%22%3A%5B%22%2Fpath%2Fto%2Fmssql-mcp%2Fdist%2Findex.js%22%5D%2C%22env%22%3A%7B%22SERVER_NAME%22%3A%22localhost%22%2C%22DATABASE_NAME%22%3A%22YourDatabase%22%2C%22DB_USER%22%3A%22%22%2C%22DB_PASSWORD%22%3A%22%22%2C%22READONLY%22%3A%22false%22%7D%7D)
+[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](cursor://anysphere.cursor-deeplink/mcp/install?name=MSSQL&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBlYW1vbmJveWxlL21zc3FsLW1jcCJdLCJlbnYiOnsiU0VSVkVSX05BTUUiOiJsb2NhbGhvc3QiLCJEQVRBQkFTRV9OQU1FIjoiWW91ckRhdGFiYXNlIiwiREJfVVNFUiI6IiIsIkRCX1BBU1NXT1JEIjoiIiwiUkVBRE9OTFkiOiJmYWxzZSJ9fQ==)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](vscode://mcp/install?%7B%22name%22%3A%22mssql%22%2C%22type%22%3A%22stdio%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40eamonboyle%2Fmssql-mcp%22%5D%2C%22env%22%3A%7B%22SERVER_NAME%22%3A%22localhost%22%2C%22DATABASE_NAME%22%3A%22YourDatabase%22%2C%22DB_USER%22%3A%22%22%2C%22DB_PASSWORD%22%3A%22%22%2C%22READONLY%22%3A%22false%22%7D%7D)
 
 > ⚠️ **EXPERIMENTAL USE ONLY** — This MCP Server is provided for educational and experimental purposes. It is NOT intended for production use. Use appropriate security measures and test thoroughly before any deployment.
 
@@ -39,7 +39,7 @@ AI: *queries your MSSQL database and returns the results in plain English*
 
 ### One-Click Install (Cursor / VS Code)
 
-Click **Add to Cursor** or **Install in VS Code** above to add the MCP server. After cloning and building (see below), edit the config to set the path to your `dist/index.js` and add your database credentials.
+Click **Add to Cursor** or **Install in VS Code** above to add the MCP server. Edit the config to add your database credentials (`DB_USER`, `DB_PASSWORD`, etc.). No cloning required—runs via `npx`.
 
 ### Prerequisites
 
@@ -49,19 +49,22 @@ Click **Add to Cursor** or **Install in VS Code** above to add the MCP server. A
 
 ### Installation
 
+**From npm** (recommended):
+
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/mssql-mcp.git
-cd mssql-mcp
-
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
+npx -y @eamonboyle/mssql-mcp
 ```
 
-> **If you used the install buttons:** Update the server config path from `/path/to/mssql-mcp` to your actual project path (e.g. `C:\Users\You\mssql-mcp` on Windows).
+Or install globally: `npm install -g @eamonboyle/mssql-mcp`
+
+**From source** (for development):
+
+```bash
+git clone https://github.com/eamonboyle/mssql-mcp.git
+cd mssql-mcp
+npm install
+npm run build
+```
 
 ## Configuration
 
@@ -88,8 +91,8 @@ npm run build
 {
   "mcpServers": {
     "mssql": {
-      "command": "node",
-      "args": ["/absolute/path/to/mssql-mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@eamonboyle/mssql-mcp"],
       "env": {
         "SERVER_NAME": "localhost",
         "DATABASE_NAME": "YourDatabase",
@@ -102,8 +105,7 @@ npm run build
 }
 ```
 
-2. Replace `/absolute/path/to/mssql-mcp` with the actual path to this project.
-3. Restart Cursor/VS Code.
+2. Restart Cursor/VS Code.
 
 ### Option 2: Claude Desktop Setup
 
@@ -114,8 +116,8 @@ npm run build
 {
   "mcpServers": {
     "mssql": {
-      "command": "node",
-      "args": ["/absolute/path/to/mssql-mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@eamonboyle/mssql-mcp"],
       "env": {
         "SERVER_NAME": "localhost",
         "DATABASE_NAME": "YourDatabase",
