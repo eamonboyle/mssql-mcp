@@ -71,16 +71,16 @@ npm run build
 
 ### Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `SERVER_NAME` | Yes | SQL Server host (e.g., `localhost`, `my-server.database.windows.net`) |
-| `DATABASE_NAME` | Yes | Default database name |
-| `DB_USER` | Yes* | SQL Server username (for SQL authentication) |
-| `DB_PASSWORD` | Yes* | SQL Server password (for SQL authentication) |
-| `READONLY` | No | `"true"` for read-only mode, `"false"` for full access (default: `"false"`) |
-| `DATABASES` | No | Comma-separated list for multi-database access (e.g., `ProdDB,StagingDB`) |
-| `CONNECTION_TIMEOUT` | No | Timeout in seconds (default: `30`) |
-| `TRUST_SERVER_CERTIFICATE` | No | `"true"` for self-signed certs (e.g., local dev) (default: `"false"`) |
+| Variable                   | Required | Description                                                                 |
+| -------------------------- | -------- | --------------------------------------------------------------------------- |
+| `SERVER_NAME`              | Yes      | SQL Server host (e.g., `localhost`, `my-server.database.windows.net`)       |
+| `DATABASE_NAME`            | Yes      | Default database name                                                       |
+| `DB_USER`                  | Yes\*    | SQL Server username (for SQL authentication)                                |
+| `DB_PASSWORD`              | Yes\*    | SQL Server password (for SQL authentication)                                |
+| `READONLY`                 | No       | `"true"` for read-only mode, `"false"` for full access (default: `"false"`) |
+| `DATABASES`                | No       | Comma-separated list for multi-database access (e.g., `ProdDB,StagingDB`)   |
+| `CONNECTION_TIMEOUT`       | No       | Timeout in seconds (default: `30`)                                          |
+| `TRUST_SERVER_CERTIFICATE` | No       | `"true"` for self-signed certs (e.g., local dev) (default: `"false"`)       |
 
 \* Required for SQL authentication. For Windows/Integrated authentication, consult the [mssql](https://www.npmjs.com/package/mssql) package documentation.
 
@@ -169,16 +169,16 @@ Once configured, you can ask things like:
 
 ## Available Tools
 
-| Tool | Read-only | Description |
-|------|-----------|-------------|
-| `read_data` | ✓ | Execute SELECT queries |
-| `list_table` | ✓ | List tables in a database |
-| `describe_table` | ✓ | Get table schema |
-| `insert_data` | | Insert rows |
-| `update_data` | | Update rows (requires WHERE) |
-| `create_table` | | Create tables |
-| `create_index` | | Create indexes |
-| `drop_table` | | Drop tables |
+| Tool             | Read-only | Description                  |
+| ---------------- | --------- | ---------------------------- |
+| `read_data`      | ✓         | Execute SELECT queries       |
+| `list_table`     | ✓         | List tables in a database    |
+| `describe_table` | ✓         | Get table schema             |
+| `insert_data`    |           | Insert rows                  |
+| `update_data`    |           | Update rows (requires WHERE) |
+| `create_table`   |           | Create tables                |
+| `create_index`   |           | Create indexes               |
+| `drop_table`     |           | Drop tables                  |
 
 ## Security Notes
 

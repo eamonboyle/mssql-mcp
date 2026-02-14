@@ -10,7 +10,10 @@ const sqlPools = new Map<string, sql.ConnectionPool>();
 export function getAllowedDatabases(): string[] {
   const databasesEnv = process.env.DATABASES;
   if (databasesEnv && databasesEnv.trim()) {
-    return databasesEnv.split(",").map((db) => db.trim()).filter(Boolean);
+    return databasesEnv
+      .split(",")
+      .map((db) => db.trim())
+      .filter(Boolean);
   }
   const defaultDb = process.env.DATABASE_NAME;
   return defaultDb ? [defaultDb] : [];

@@ -49,26 +49,29 @@ IMPORTANT RULES:
   inputSchema = {
     type: "object",
     properties: {
-      tableName: { 
-        type: "string", 
-        description: "Name of the table to insert data into" 
+      tableName: {
+        type: "string",
+        description: "Name of the table to insert data into",
       },
-      data: { 
+      data: {
         oneOf: [
-          { 
-            type: "object", 
-            description: "Single record data object with column names as keys and values as the data to insert. Example: {\"name\": \"John\", \"age\": 30}" 
+          {
+            type: "object",
+            description:
+              'Single record data object with column names as keys and values as the data to insert. Example: {"name": "John", "age": 30}',
           },
-          { 
-            type: "array", 
+          {
+            type: "array",
             items: { type: "object" },
-            description: "Array of data objects for multiple record insertion. Each object must have identical column structure. Example: [{\"name\": \"John\", \"age\": 30}, {\"name\": \"Jane\", \"age\": 25}]" 
-          }
-        ]
+            description:
+              'Array of data objects for multiple record insertion. Each object must have identical column structure. Example: [{"name": "John", "age": 30}, {"name": "Jane", "age": 25}]',
+          },
+        ],
       },
       databaseName: {
         type: "string",
-        description: "Name of the database to use (optional). Omit to use the default database."
+        description:
+          "Name of the database to use (optional). Omit to use the default database.",
       },
     },
     required: ["tableName", "data"],
@@ -95,10 +98,12 @@ IMPORTANT RULES:
       const firstRecordColumns = Object.keys(records[0]).sort();
       for (let i = 1; i < records.length; i++) {
         const currentColumns = Object.keys(records[i]).sort();
-        if (JSON.stringify(firstRecordColumns) !== JSON.stringify(currentColumns)) {
+        if (
+          JSON.stringify(firstRecordColumns) !== JSON.stringify(currentColumns)
+        ) {
           return {
             success: false,
-            message: `Column mismatch: Record ${i + 1} has different columns than the first record. Expected columns: [${firstRecordColumns.join(', ')}], but got: [${currentColumns.join(', ')}]`,
+            message: `Column mismatch: Record ${i + 1} has different columns than the first record. Expected columns: [${firstRecordColumns.join(", ")}], but got: [${currentColumns.join(", ")}]`,
           };
         }
       }
@@ -120,7 +125,7 @@ IMPORTANT RULES:
         await request.query(query);
         return {
           success: true,
-          message: `Successfully inserted ${records.length} record${records.length > 1 ? 's' : ''} into ${tableName}`,
+          message: `Successfully inserted ${records.length} record${records.length > 1 ? "s" : ""} into ${tableName}`,
           recordsInserted: records.length,
         };
       } else {

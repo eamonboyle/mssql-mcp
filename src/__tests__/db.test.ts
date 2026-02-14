@@ -3,10 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // Mock mssql to avoid loading native deps and transitive issues in test env
 vi.mock("mssql", () => ({}));
 
-import {
-  getAllowedDatabases,
-  resolveDatabaseName,
-} from "../db.js";
+import { getAllowedDatabases, resolveDatabaseName } from "../db.js";
 
 describe("getAllowedDatabases", () => {
   const originalEnv = process.env;
@@ -39,12 +36,20 @@ describe("getAllowedDatabases", () => {
 
   it("returns DATABASES split by comma when set", () => {
     process.env.DATABASES = "ProdDB,StagingDB,AnalyticsDB";
-    expect(getAllowedDatabases()).toEqual(["ProdDB", "StagingDB", "AnalyticsDB"]);
+    expect(getAllowedDatabases()).toEqual([
+      "ProdDB",
+      "StagingDB",
+      "AnalyticsDB",
+    ]);
   });
 
   it("trims whitespace from DATABASES entries", () => {
     process.env.DATABASES = "  ProdDB , StagingDB , AnalyticsDB  ";
-    expect(getAllowedDatabases()).toEqual(["ProdDB", "StagingDB", "AnalyticsDB"]);
+    expect(getAllowedDatabases()).toEqual([
+      "ProdDB",
+      "StagingDB",
+      "AnalyticsDB",
+    ]);
   });
 
   it("filters out empty entries from DATABASES", () => {

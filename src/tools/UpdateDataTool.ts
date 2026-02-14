@@ -4,25 +4,29 @@ import { getSqlRequest } from "../db.js";
 export class UpdateDataTool implements Tool {
   [key: string]: any;
   name = "update_data";
-  description = "Updates data in an MSSQL Database table using a WHERE clause. The WHERE clause must be provided for security.";
+  description =
+    "Updates data in an MSSQL Database table using a WHERE clause. The WHERE clause must be provided for security.";
   inputSchema = {
     type: "object",
     properties: {
-      tableName: { 
-        type: "string", 
-        description: "Name of the table to update" 
+      tableName: {
+        type: "string",
+        description: "Name of the table to update",
       },
       updates: {
         type: "object",
-        description: "Key-value pairs of columns to update. Example: { 'status': 'active', 'last_updated': '2025-01-01' }",
+        description:
+          "Key-value pairs of columns to update. Example: { 'status': 'active', 'last_updated': '2025-01-01' }",
       },
-      whereClause: { 
-        type: "string", 
-        description: "WHERE clause to identify which records to update. Example: \"genre = 'comedy' AND created_date <= '2025-07-05'\"" 
+      whereClause: {
+        type: "string",
+        description:
+          "WHERE clause to identify which records to update. Example: \"genre = 'comedy' AND created_date <= '2025-07-05'\"",
       },
       databaseName: {
         type: "string",
-        description: "Name of the database to use (optional). Omit to use the default database."
+        description:
+          "Name of the database to use (optional). Omit to use the default database.",
       },
     },
     required: ["tableName", "updates", "whereClause"],
@@ -37,12 +41,12 @@ export class UpdateDataTool implements Tool {
       if (error) {
         return { success: false, message: error };
       }
-      
+
       // Basic validation: ensure whereClause is not empty
-      if (!whereClause || whereClause.trim() === '') {
+      if (!whereClause || whereClause.trim() === "") {
         throw new Error("WHERE clause is required for security reasons");
       }
-      
+
       // Build SET clause with parameterized queries for security
       const setClause = Object.keys(updates)
         .map((key, index) => {
@@ -54,7 +58,7 @@ export class UpdateDataTool implements Tool {
 
       query = `UPDATE ${tableName} SET ${setClause} WHERE ${whereClause}`;
       const result = await request.query(query);
-      
+
       return {
         success: true,
         message: `Update completed successfully. ${result.rowsAffected[0]} row(s) affected`,
@@ -64,7 +68,7 @@ export class UpdateDataTool implements Tool {
       console.error("Error updating data:", error);
       return {
         success: false,
-        message: `Failed to update data ${query ? ` with '${query}'` : ''}: ${error}`,
+        message: `Failed to update data ${query ? ` with '${query}'` : ""}: ${error}`,
       };
     }
   }

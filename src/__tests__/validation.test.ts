@@ -3,8 +3,12 @@ import { validateReadQuery } from "../validation.js";
 
 describe("validateReadQuery", () => {
   it("accepts simple SELECT query", () => {
-    expect(validateReadQuery("SELECT * FROM movies")).toEqual({ isValid: true });
-    expect(validateReadQuery("SELECT id, name FROM users WHERE id = 1")).toEqual({
+    expect(validateReadQuery("SELECT * FROM movies")).toEqual({
+      isValid: true,
+    });
+    expect(
+      validateReadQuery("SELECT id, name FROM users WHERE id = 1")
+    ).toEqual({
       isValid: true,
     });
   });
@@ -92,11 +96,13 @@ describe("validateReadQuery", () => {
   it("rejects stored procedure patterns", () => {
     expect(validateReadQuery("SELECT * FROM sp_help")).toEqual({
       isValid: false,
-      error: "Potentially malicious SQL pattern detected. Only simple SELECT queries are allowed.",
+      error:
+        "Potentially malicious SQL pattern detected. Only simple SELECT queries are allowed.",
     });
     expect(validateReadQuery("SELECT * FROM xp_cmdshell")).toEqual({
       isValid: false,
-      error: "Potentially malicious SQL pattern detected. Only simple SELECT queries are allowed.",
+      error:
+        "Potentially malicious SQL pattern detected. Only simple SELECT queries are allowed.",
     });
   });
 

@@ -125,7 +125,9 @@ export function validateReadQuery(query: string): ValidationResult {
     }
   }
 
-  const statements = cleanQuery.split(";").filter((stmt) => stmt.trim().length > 0);
+  const statements = cleanQuery
+    .split(";")
+    .filter((stmt) => stmt.trim().length > 0);
   if (statements.length > 1) {
     return {
       isValid: false,
