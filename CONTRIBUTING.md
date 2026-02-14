@@ -13,6 +13,9 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 - **Build**: `npm run build`
 - **Watch mode**: `npm run watch` (rebuilds on file changes)
+- **Test**: `npm test` (or `npm run test:watch` for watch mode)
+- **Lint**: `npm run lint`
+- **Format**: `npm run format` (Prettier)
 
 The project uses TypeScript. Source files are in `src/`, compiled output goes to `dist/`.
 
@@ -20,13 +23,13 @@ The project uses TypeScript. Source files are in `src/`, compiled output goes to
 
 1. **Write clear commit messages** — Use present tense ("Add feature" not "Added feature").
 2. **Keep changes focused** — One logical change per commit/PR.
-3. **Test your changes** — Ensure the server builds and works with your SQL Server setup.
+3. **Test your changes** — Run `npm test` and ensure the server builds and works with your SQL Server setup.
 4. **Open a Pull Request** — Describe what you changed and why.
 
 ## Pull Request Process
 
 1. Update the README or docs if you add configuration options or change behavior.
-2. Ensure `npm run build` succeeds.
+2. Ensure `npm run build`, `npm run lint`, and `npm test` succeed.
 3. Fill out the PR template when opening a pull request.
 4. Address any review feedback.
 

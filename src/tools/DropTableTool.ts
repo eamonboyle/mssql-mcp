@@ -11,7 +11,8 @@ export class DropTableTool implements Tool {
       tableName: { type: "string", description: "Name of the table to drop" },
       databaseName: {
         type: "string",
-        description: "Name of the database to use (optional). Omit to use the default database."
+        description:
+          "Name of the database to use (optional). Omit to use the default database.",
       },
     },
     required: ["tableName"],
@@ -34,13 +35,13 @@ export class DropTableTool implements Tool {
       await request.query(query);
       return {
         success: true,
-        message: `Table '${tableName}' dropped successfully.`
+        message: `Table '${tableName}' dropped successfully.`,
       };
     } catch (error) {
       console.error("Error dropping table:", error);
       return {
         success: false,
-        message: `Failed to drop table: ${error}`
+        message: `Failed to drop table: ${error}`,
       };
     }
   }

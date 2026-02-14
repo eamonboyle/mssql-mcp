@@ -4,21 +4,23 @@ import { getSqlRequest } from "../db.js";
 export class ListTableTool implements Tool {
   [key: string]: any;
   name = "list_table";
-  description = "Lists tables in an MSSQL Database, or list tables in specific schemas";
+  description =
+    "Lists tables in an MSSQL Database, or list tables in specific schemas";
   inputSchema = {
     type: "object",
     properties: {
-      parameters: { 
-        type: "array", 
+      parameters: {
+        type: "array",
         description: "Schemas to filter by (optional)",
         items: {
-          type: "string"
+          type: "string",
         },
-        minItems: 0
+        minItems: 0,
       },
       databaseName: {
         type: "string",
-        description: "Name of the database to use (optional). Omit to use the default database."
+        description:
+          "Name of the database to use (optional). Omit to use the default database.",
       },
     },
     required: [],
@@ -32,7 +34,10 @@ export class ListTableTool implements Tool {
       if (error) {
         return { success: false, message: error };
       }
-      const schemaFilter = parameters && parameters.length > 0 ? `AND TABLE_SCHEMA IN (${parameters.map((p: string) => `'${p}'`).join(", ")})` : "";
+      const schemaFilter =
+        parameters && parameters.length > 0
+          ? `AND TABLE_SCHEMA IN (${parameters.map((p: string) => `'${p}'`).join(", ")})`
+          : "";
       const query = `SELECT TABLE_SCHEMA + '.' + TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' ${schemaFilter} ORDER BY TABLE_SCHEMA, TABLE_NAME`;
       const result = await request.query(query);
       return {
