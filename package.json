@@ -15,7 +15,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/eamonboyle/mssql-mcp.git"
+    "url": "git+https://github.com/eamonboyle/mssql-mcp.git"
   },
   "homepage": "https://github.com/eamonboyle/mssql-mcp#readme",
   "bugs": {
