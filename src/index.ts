@@ -11,6 +11,8 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
+import { log as fileLog, getLogPath } from "./logger.js";
+
 dotenv.config();
 
 // Internal imports
@@ -54,24 +56,74 @@ const mcpServer = new McpServer(
 // Read READONLY env variable
 const isReadOnly = process.env.READONLY === "true";
 
-// Register read_data with MCP App UI
-registerAppTool(
-  mcpServer,
-  "read_data",
-  {
+// Set USE_MCP_APPS=false to use standard tools (avoids "v3Schema" parse errors in some Cursor versions)
+const useMcpApps = process.env.USE_MCP_APPS !== "false";
+
+// Debug logging (set DEBUG=true to trace tool responses)
+const DEBUG = process.env.DEBUG === "true" || process.env.DEBUG === "1";
+function debugLog(tool: string, message: string, data?: unknown) {
+  if (DEBUG) {
+    const payload = data !== undefined ? ` ${JSON.stringify(data).slice(0, 300)}...` : "";
+    const msg = `${tool}: ${message}${payload}`;
+    console.error(`[MSSQL-MCP DEBUG] ${msg}`);
+    fileLog("DEBUG", msg);
+  }
+}
+
+/** Recursively convert values to JSON-serializable form (handles Date, Buffer, BigInt, Decimal, etc.) */
+function toJsonSafe(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value === "boolean" || typeof value === "number" || typeof value === "string") return value;
+  if (typeof value === "bigint") return value.toString();
+  if (value instanceof Date) return value.toISOString();
+  if (Buffer.isBuffer(value)) return value.toString("base64");
+  if (Array.isArray(value)) return value.map(toJsonSafe);
+  if (typeof value === "object" && value !== null) {
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.toJSON === "function") return obj.toJSON();
+    if (typeof (obj as { valueOf?: () => unknown }).valueOf === "function") {
+      const prim = (obj as { valueOf: () => unknown }).valueOf();
+      if (typeof prim === "number" || typeof prim === "string") return prim;
+    }
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      try {
+        out[k] = toJsonSafe(v);
+      } catch {
+        out[k] = String(v);
+      }
+    }
+    return out;
+  }
+  return String(value);
+}
+
+const readDataHandler = async (args: unknown) => {
+  fileLog("INFO", "read_data called", { hasArgs: !!args });
+  const result = await readDataTool.run(args);
+  const payload = toJsonSafe(result);
+  const text = JSON.stringify(payload, null, 2);
+  fileLog("INFO", "read_data result", { success: (result as { success?: boolean }).success, textLength: text.length });
+  if (DEBUG) {
+    debugLog("read_data", "result keys", Object.keys(result as object));
+    debugLog("read_data", "text length", text.length);
+    debugLog("read_data", "text preview", text.slice(0, 200));
+  }
+  return { content: [{ type: "text" as const, text }] };
+};
+
+if (useMcpApps) {
+  registerAppTool(mcpServer, "read_data", {
     description: readDataTool.description,
     inputSchema: readDataTool.inputSchema,
-    _meta: {
-      ui: { resourceUri: QUERY_RESULTS_URI },
-    },
-  },
-  async (args) => {
-    const result = await readDataTool.run(args);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  }
-);
+    _meta: { ui: { resourceUri: QUERY_RESULTS_URI } },
+  }, readDataHandler);
+} else {
+  mcpServer.registerTool("read_data", {
+    description: readDataTool.description,
+    inputSchema: readDataTool.inputSchema,
+  }, readDataHandler);
+}
 
 // Register the query results UI resource
 registerAppResource(
@@ -94,24 +146,27 @@ registerAppResource(
   }
 );
 
-// Register list_table with MCP App UI
-registerAppTool(
-  mcpServer,
-  "list_table",
-  {
+const listTableHandler = async (args: unknown) => {
+  fileLog("INFO", "list_table called", { hasArgs: !!args });
+  const result = await listTableTool.run(args);
+  const payload = toJsonSafe(result);
+  const text = JSON.stringify(payload, null, 2);
+  debugLog("list_table", "returning", { contentLength: text.length });
+  return { content: [{ type: "text" as const, text }] };
+};
+
+if (useMcpApps) {
+  registerAppTool(mcpServer, "list_table", {
     description: listTableTool.description,
     inputSchema: listTableTool.inputSchema,
-    _meta: {
-      ui: { resourceUri: TABLE_EXPLORER_URI },
-    },
-  },
-  async (args) => {
-    const result = await listTableTool.run(args);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  }
-);
+    _meta: { ui: { resourceUri: TABLE_EXPLORER_URI } },
+  }, listTableHandler);
+} else {
+  mcpServer.registerTool("list_table", {
+    description: listTableTool.description,
+    inputSchema: listTableTool.inputSchema,
+  }, listTableHandler);
+}
 
 // Register the table explorer UI resource
 registerAppResource(
@@ -134,37 +189,33 @@ registerAppResource(
   }
 );
 
-// Register describe_table with MCP App UI
-registerAppTool(
-  mcpServer,
-  "describe_table",
-  {
-    description: describeTableTool.description,
-    inputSchema: describeTableTool.inputSchema,
-    _meta: {
-      ui: { resourceUri: SCHEMA_VIEWER_URI },
-    },
-  },
-  async (args) => {
-    if (!args || typeof (args as { tableName?: string }).tableName !== "string") {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Missing or invalid 'tableName' argument for describe_table tool.`,
-          },
-        ],
-        isError: true,
-      };
-    }
-    const result = await describeTableTool.run(
-      args as { tableName: string; databaseName?: string }
-    );
+const describeTableHandler = async (args: unknown) => {
+  fileLog("INFO", "describe_table called", { hasArgs: !!args });
+  if (!args || typeof (args as { tableName?: string }).tableName !== "string") {
     return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      content: [{ type: "text" as const, text: `Missing or invalid 'tableName' argument for describe_table tool.` }],
+      isError: true,
     };
   }
-);
+  const result = await describeTableTool.run(args as { tableName: string; databaseName?: string });
+  const payload = toJsonSafe(result);
+  const text = JSON.stringify(payload, null, 2);
+  debugLog("describe_table", "returning", { contentLength: text.length });
+  return { content: [{ type: "text" as const, text }] };
+};
+
+if (useMcpApps) {
+  registerAppTool(mcpServer, "describe_table", {
+    description: describeTableTool.description,
+    inputSchema: describeTableTool.inputSchema,
+    _meta: { ui: { resourceUri: SCHEMA_VIEWER_URI } },
+  }, describeTableHandler);
+} else {
+  mcpServer.registerTool("describe_table", {
+    description: describeTableTool.description,
+    inputSchema: describeTableTool.inputSchema,
+  }, describeTableHandler);
+}
 
 // Register the schema viewer UI resource
 registerAppResource(
@@ -263,6 +314,18 @@ if (!isReadOnly) {
 // Server startup
 async function runServer() {
   try {
+    fileLog("INFO", "Server starting", {
+      debug: DEBUG,
+      useMcpApps,
+      readOnly: isReadOnly,
+      logPath: getLogPath(),
+    });
+    if (DEBUG) {
+      console.error("[MSSQL-MCP] Debug logging enabled (DEBUG=true). Logs:", getLogPath());
+    }
+    if (!useMcpApps) {
+      console.error("[MSSQL-MCP] MCP Apps disabled (USE_MCP_APPS=false) - using standard tools to avoid parse errors");
+    }
     const transport = new StdioServerTransport();
     await mcpServer.connect(transport);
   } catch (error) {
@@ -272,6 +335,7 @@ async function runServer() {
 }
 
 runServer().catch((error) => {
+  fileLog("ERROR", "Fatal error running server", { error: String(error) });
   console.error("Fatal error running server:", error);
   process.exit(1);
 });
