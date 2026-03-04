@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 // External imports
 import * as dotenv from "dotenv";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
