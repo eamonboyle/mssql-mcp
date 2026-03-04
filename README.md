@@ -22,6 +22,7 @@ AI: *queries your MSSQL database and returns the results in plain English*
 
 ## Features 📊
 
+- **MCP Apps** — Interactive UIs in Cursor for query results, table explorer, and schema viewer (progressive enhancement; falls back to text in other clients)
 - **Natural language to SQL** — Ask questions in plain English
 - **CRUD operations** — Create, read, update, and delete data
 - **Schema management** — Create tables, indexes; describe and drop tables

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Table Explorer - MSSQL MCP</title>
+    <style>
+      :root {
+        --color-bg: var(--color-background-primary, #ffffff);
+        --color-text: var(--color-text-primary, #1a1a1a);
+        --color-border: var(--color-border-primary, #e0e0e0);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 12px;
+        font-family: var(--font-family-sans, system-ui, sans-serif);
+        font-size: 13px;
+        background: var(--color-bg);
+        color: var(--color-text);
+      }
+      .header { margin-bottom: 12px; }
+      .status { color: var(--color-text-secondary, #666); }
+      .error { color: var(--color-text-error, #c00); }
+      .table-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .table-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--color-border);
+        gap: 8px;
+      }
+      .table-item:hover { background: rgba(0,0,0,0.03); }
+      .table-name { font-family: monospace; flex: 1; }
+      .btn {
+        padding: 4px 10px;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        background: var(--color-bg);
+        color: var(--color-text);
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .btn:hover { background: var(--color-border); }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .schema-viewer {
+        margin-top: 12px;
+        padding: 12px;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        background: var(--color-bg);
+      }
+      .schema-viewer h3 { margin: 0 0 8px 0; font-size: 14px; }
+      .schema-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .schema-table th, .schema-table td {
+        padding: 6px 8px;
+        text-align: left;
+        border-bottom: 1px solid var(--color-border);
+      }
+      .schema-table th { font-weight: 600; }
+      .empty { padding: 24px; text-align: center; color: var(--color-text-secondary); }
+      .loading { padding: 24px; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <span class="status" id="status">Loading...</span>
+    </div>
+    <ul class="table-list" id="table-list"></ul>
+    <div class="schema-viewer" id="schema-viewer" style="display:none">
+      <h3 id="schema-title">Schema</h3>
+      <table class="schema-table" id="schema-table"></table>
+      <button class="btn" id="view-data-btn" style="margin-top:8px">View sample data</button>
+    </div>
+    <script type="module" src="./table-explorer.ts"></script>
+  </body>
+</html>
