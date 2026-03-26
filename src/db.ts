@@ -15,12 +15,18 @@ function parseDatabaseList(value?: string): string[] {
 }
 
 function getDefaultDatabaseName(): string | null {
+  const allowedDatabases = parseDatabaseList(process.env.DATABASES);
   const explicitDefault = process.env.DATABASE_NAME?.trim();
-  if (explicitDefault) {
+
+  if (allowedDatabases.length === 0) {
+    return explicitDefault ?? null;
+  }
+
+  if (explicitDefault && allowedDatabases.includes(explicitDefault)) {
     return explicitDefault;
   }
 
-  return getAllowedDatabases()[0] ?? null;
+  return allowedDatabases[0] ?? null;
 }
 
 /**

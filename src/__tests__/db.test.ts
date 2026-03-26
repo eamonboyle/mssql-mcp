@@ -151,10 +151,10 @@ describe("resolveDatabaseName", () => {
     expect(resolveDatabaseName("StagingDB")).toBe("StagingDB");
   });
 
-  it("returns null when DATABASE_NAME is not included in DATABASES", () => {
+  it("falls back to the first DATABASES entry when DATABASE_NAME is not included in DATABASES", () => {
     process.env.DATABASES = "ProdDB,StagingDB";
     process.env.DATABASE_NAME = "OtherDb";
-    expect(resolveDatabaseName()).toBeNull();
+    expect(resolveDatabaseName()).toBe("ProdDB");
   });
 
   it("returns null when param not in allowed list", () => {
@@ -241,6 +241,25 @@ describe("getSqlRequest", () => {
     );
     expect(mssqlMockState.requestCalls).toHaveBeenCalledWith(
       expect.objectContaining({ database: "ProdDBDefault" })
+    );
+  });
+
+  it("falls back to the first allowed database when DATABASE_NAME is disallowed", async () => {
+    process.env.DATABASES = "ProdDB,StagingDB";
+    process.env.DATABASE_NAME = "OtherDb";
+
+    const result = await getSqlRequest();
+
+    expect(result.error).toBeUndefined();
+    expect(result.request).toBe(mssqlMockState.requestObject);
+    expect(mssqlMockState.poolConfigs).toContainEqual(
+      expect.objectContaining({ database: "ProdDB" })
+    );
+    expect(mssqlMockState.connectCalls).toHaveBeenCalledWith(
+      expect.objectContaining({ database: "ProdDB" })
+    );
+    expect(mssqlMockState.requestCalls).toHaveBeenCalledWith(
+      expect.objectContaining({ database: "ProdDB" })
     );
   });
 });

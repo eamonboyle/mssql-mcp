@@ -152,7 +152,7 @@ To allow queries across multiple databases:
 }
 ```
 
-`DATABASES` defines which databases the MCP can access. All tools accept an optional `databaseName` parameter. When omitted, the server uses `DATABASE_NAME` if set; otherwise it falls back to the first entry in `DATABASES`.
+`DATABASES` defines which databases the MCP can access. All tools accept an optional `databaseName` parameter. When omitted, the server uses `DATABASE_NAME` if it is included in `DATABASES`; otherwise it falls back to the first entry in `DATABASES`.
 
 ## Sample Configurations
 
