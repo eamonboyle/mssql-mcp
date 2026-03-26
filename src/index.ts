@@ -1,127 +1,74 @@
 #!/usr/bin/env node
 
-// External imports
 import * as dotenv from "dotenv";
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
 dotenv.config();
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { getMaxRows, getQueryTimeoutMs } from "./config.js";
+import { getAllowedDatabases } from "./db.js";
+import { registerPrompts } from "./promptRegistry.js";
+import { registerResources } from "./resourceRegistry.js";
+import { getAvailableTools } from "./toolRegistry.js";
 
-// Internal imports
-import { UpdateDataTool } from "./tools/UpdateDataTool.js";
-import { InsertDataTool } from "./tools/InsertDataTool.js";
-import { ReadDataTool } from "./tools/ReadDataTool.js";
-import { CreateTableTool } from "./tools/CreateTableTool.js";
-import { CreateIndexTool } from "./tools/CreateIndexTool.js";
-import { ListTableTool } from "./tools/ListTableTool.js";
-import { DropTableTool } from "./tools/DropTableTool.js";
-import { DescribeTableTool } from "./tools/DescribeTableTool.js";
+const SERVER_VERSION = "1.1.0";
+const SERVER_NAME = "mssql-mcp-server";
 
-const updateDataTool = new UpdateDataTool();
-const insertDataTool = new InsertDataTool();
-const readDataTool = new ReadDataTool();
-const createTableTool = new CreateTableTool();
-const createIndexTool = new CreateIndexTool();
-const listTableTool = new ListTableTool();
-const dropTableTool = new DropTableTool();
-const describeTableTool = new DescribeTableTool();
+const isReadOnly = process.env.READONLY === "true";
+const allowedDatabases = getAllowedDatabases();
+const availableTools = getAvailableTools(isReadOnly);
 
-const server = new Server(
+const server = new McpServer(
   {
-    name: "mssql-mcp-server",
-    version: "0.1.0",
+    name: SERVER_NAME,
+    version: SERVER_VERSION,
   },
   {
-    capabilities: {
-      tools: {},
-    },
+    instructions:
+      "Use list_objects or list_table to inspect schema before querying data. Prefer read_data, search_data, and explain_query for safe read-only analysis.",
   }
 );
 
-// Read READONLY env variable
-const isReadOnly = process.env.READONLY === "true";
+function asTextToolResult(result: unknown) {
+  const isError =
+    typeof result === "object" &&
+    result !== null &&
+    "success" in result &&
+    (result as { success?: boolean }).success === false;
 
-// Request handlers
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+    isError,
+  };
+}
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: isReadOnly
-    ? [listTableTool, readDataTool, describeTableTool] // todo: add searchDataTool to the list of tools available in readonly mode once implemented
-    : [
-        insertDataTool,
-        readDataTool,
-        describeTableTool,
-        updateDataTool,
-        createTableTool,
-        createIndexTool,
-        dropTableTool,
-        listTableTool,
-      ], // add all new tools here
-}));
-
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-  try {
-    let result;
-    switch (name) {
-      case insertDataTool.name:
-        result = await insertDataTool.run(args);
-        break;
-      case readDataTool.name:
-        result = await readDataTool.run(args);
-        break;
-      case updateDataTool.name:
-        result = await updateDataTool.run(args);
-        break;
-      case createTableTool.name:
-        result = await createTableTool.run(args);
-        break;
-      case createIndexTool.name:
-        result = await createIndexTool.run(args);
-        break;
-      case listTableTool.name:
-        result = await listTableTool.run(args);
-        break;
-      case dropTableTool.name:
-        result = await dropTableTool.run(args);
-        break;
-      case describeTableTool.name:
-        if (!args || typeof args.tableName !== "string") {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Missing or invalid 'tableName' argument for describe_table tool.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-        result = await describeTableTool.run(
-          args as { tableName: string; databaseName?: string }
-        );
-        break;
-      default:
-        return {
-          content: [{ type: "text", text: `Unknown tool: ${name}` }],
-          isError: true,
-        };
-    }
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  } catch (error) {
-    return {
-      content: [{ type: "text", text: `Error occurred: ${error}` }],
-      isError: true,
-    };
+function registerTools(serverInstance: McpServer): void {
+  for (const definition of availableTools) {
+    serverInstance.registerTool(
+      definition.tool.name,
+      {
+        title: definition.tool.name,
+        description: definition.tool.description,
+        inputSchema: definition.inputSchema,
+        annotations: definition.annotations,
+      },
+      async (args) => asTextToolResult(await definition.tool.run(args))
+    );
   }
-});
+}
 
-// Server startup
+registerTools(server);
+registerResources(server, {
+  serverName: SERVER_NAME,
+  serverVersion: SERVER_VERSION,
+  isReadOnly,
+  allowedDatabases,
+  toolNames: availableTools.map((tool) => tool.tool.name),
+  maxRows: getMaxRows(),
+  queryTimeoutMs: getQueryTimeoutMs(),
+});
+registerPrompts(server);
+
 async function runServer() {
   try {
     const transport = new StdioServerTransport();
@@ -136,5 +83,3 @@ runServer().catch((error) => {
   console.error("Fatal error running server:", error);
   process.exit(1);
 });
-
-// Tools call getSqlRequest(databaseName) internally - no wrapping needed

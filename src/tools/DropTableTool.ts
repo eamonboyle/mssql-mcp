@@ -1,24 +1,15 @@
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getSqlRequest } from "../db.js";
 
-export class DropTableTool implements Tool {
-  [key: string]: any;
+interface DropTableParams {
+  tableName: string;
+  databaseName?: string;
+}
+
+export class DropTableTool {
   name = "drop_table";
   description = "Drops a table from the MSSQL Database.";
-  inputSchema = {
-    type: "object",
-    properties: {
-      tableName: { type: "string", description: "Name of the table to drop" },
-      databaseName: {
-        type: "string",
-        description:
-          "Name of the database to use (optional). Omit to use the default configured database.",
-      },
-    },
-    required: ["tableName"],
-  } as any;
 
-  async run(params: any) {
+  async run(params: DropTableParams) {
     try {
       const { tableName, databaseName } = params;
 

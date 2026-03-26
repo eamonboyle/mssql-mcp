@@ -1,4 +1,5 @@
 import sql from "mssql";
+import { getQueryTimeoutMs } from "./config.js";
 
 // Connection pools keyed by database name
 const sqlPools = new Map<string, sql.ConnectionPool>();
@@ -69,6 +70,7 @@ function createSqlConfigForDatabase(databaseName: string): sql.config {
     database: databaseName,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
+    requestTimeout: getQueryTimeoutMs(),
     options: {
       encrypt: false,
       trustServerCertificate: trustServerCertificate || true,
@@ -123,7 +125,7 @@ export async function getSqlRequest(
         : "Set DATABASE_NAME or DATABASES to configure database access.";
 
     return {
-      request: null as any,
+      request: null as unknown as sql.Request,
       error: `Invalid or disallowed database. ${configurationHint} Use the databaseName parameter to target a specific configured database.`,
     };
   }

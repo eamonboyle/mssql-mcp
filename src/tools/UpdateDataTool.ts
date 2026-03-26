@@ -1,38 +1,18 @@
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getSqlRequest } from "../db.js";
 
-export class UpdateDataTool implements Tool {
-  [key: string]: any;
+interface UpdateDataParams {
+  tableName: string;
+  updates: Record<string, unknown>;
+  whereClause: string;
+  databaseName?: string;
+}
+
+export class UpdateDataTool {
   name = "update_data";
   description =
     "Updates data in an MSSQL Database table using a WHERE clause. The WHERE clause must be provided for security.";
-  inputSchema = {
-    type: "object",
-    properties: {
-      tableName: {
-        type: "string",
-        description: "Name of the table to update",
-      },
-      updates: {
-        type: "object",
-        description:
-          "Key-value pairs of columns to update. Example: { 'status': 'active', 'last_updated': '2025-01-01' }",
-      },
-      whereClause: {
-        type: "string",
-        description:
-          "WHERE clause to identify which records to update. Example: \"genre = 'comedy' AND created_date <= '2025-07-05'\"",
-      },
-      databaseName: {
-        type: "string",
-        description:
-          "Name of the database to use (optional). Omit to use the default configured database.",
-      },
-    },
-    required: ["tableName", "updates", "whereClause"],
-  } as any;
 
-  async run(params: any) {
+  async run(params: UpdateDataParams) {
     let query: string | undefined;
     try {
       const { tableName, updates, whereClause, databaseName } = params;

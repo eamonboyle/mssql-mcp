@@ -1,49 +1,39 @@
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getSqlRequest } from "../db.js";
+import { listDatabaseTables } from "../schema.js";
 
-export class ListTableTool implements Tool {
-  [key: string]: any;
+interface ListTableParams {
+  parameters?: string[];
+  databaseName?: string;
+}
+
+export class ListTableTool {
   name = "list_table";
   description =
     "Lists tables in an MSSQL Database, or list tables in specific schemas";
-  inputSchema = {
-    type: "object",
-    properties: {
-      parameters: {
-        type: "array",
-        description: "Schemas to filter by (optional)",
-        items: {
-          type: "string",
-        },
-        minItems: 0,
-      },
-      databaseName: {
-        type: "string",
-        description:
-          "Name of the database to use (optional). Omit to use the default configured database.",
-      },
-    },
-    required: [],
-  } as any;
 
-  async run(params: any) {
+  async run(params: ListTableParams = {}) {
     try {
-      const { parameters, databaseName } = params || {};
+      const { parameters, databaseName } = params;
+      const schemaNames = Array.isArray(parameters)
+        ? parameters.filter((value: unknown) => typeof value === "string")
+        : [];
 
-      const { request, error } = await getSqlRequest(databaseName);
-      if (error) {
-        return { success: false, message: error };
-      }
-      const schemaFilter =
-        parameters && parameters.length > 0
-          ? `AND TABLE_SCHEMA IN (${parameters.map((p: string) => `'${p}'`).join(", ")})`
-          : "";
-      const query = `SELECT TABLE_SCHEMA + '.' + TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' ${schemaFilter} ORDER BY TABLE_SCHEMA, TABLE_NAME`;
-      const result = await request.query(query);
+      const tables =
+        schemaNames.length > 0
+          ? (
+              await Promise.all(
+                schemaNames.map((schemaName) =>
+                  listDatabaseTables(databaseName, schemaName)
+                )
+              )
+            ).flat()
+          : await listDatabaseTables(databaseName);
+
       return {
         success: true,
         message: `List tables executed successfully`,
-        items: result.recordset,
+        items: tables.map((table) => ({
+          name: `${table.schemaName}.${table.tableName}`,
+        })),
       };
     } catch (error) {
       console.error("Error listing tables:", error);

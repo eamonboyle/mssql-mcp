@@ -1,49 +1,21 @@
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getSqlRequest } from "../db.js";
 
-export class CreateIndexTool implements Tool {
-  [key: string]: any;
+interface CreateIndexParams {
+  schemaName?: string;
+  tableName: string;
+  indexName: string;
+  columns: string[];
+  isUnique?: boolean;
+  isClustered?: boolean;
+  databaseName?: string;
+}
+
+export class CreateIndexTool {
   name = "create_index";
   description =
     "Creates an index on a specified column or columns in an MSSQL Database table";
-  inputSchema = {
-    type: "object",
-    properties: {
-      schemaName: {
-        type: "string",
-        description: "Name of the schema containing the table",
-      },
-      tableName: {
-        type: "string",
-        description: "Name of the table to create index on",
-      },
-      indexName: { type: "string", description: "Name for the new index" },
-      columns: {
-        type: "array",
-        items: { type: "string" },
-        description: "Array of column names to include in the index",
-      },
-      isUnique: {
-        type: "boolean",
-        description:
-          "Whether the index should enforce uniqueness (default: false)",
-        default: false,
-      },
-      isClustered: {
-        type: "boolean",
-        description: "Whether the index should be clustered (default: false)",
-        default: false,
-      },
-      databaseName: {
-        type: "string",
-        description:
-          "Name of the database to use (optional). Omit to use the default configured database.",
-      },
-    },
-    required: ["tableName", "indexName", "columns"],
-  } as any;
 
-  async run(params: any) {
+  async run(params: CreateIndexParams) {
     try {
       const {
         schemaName,

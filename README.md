@@ -23,11 +23,13 @@ AI: *queries your MSSQL database and returns the results in plain English*
 ## Features 📊
 
 - **Natural language to SQL** — Ask questions in plain English
-- **CRUD operations** — Create, read, update, and delete data
-- **Schema management** — Create tables, indexes; describe and drop tables
+- **Row-level CRUD support** — Read, insert, update, and delete rows with dedicated tools
+- **Schema discovery** — Inspect tables, views, procedures, functions, and triggers
+- **Query analysis** — Generate estimated execution plans with `explain_query`
+- **MCP resources and prompts** — Expose schema snapshots and prompt templates to capable clients
 - **Multi-database support** — Connect to multiple databases on the same server
-- **Read-only mode** — Restrict to SELECT-only for safer environments
-- **Secure by default** — WHERE clauses required for reads/updates; SQL injection safeguards
+- **Read-only mode** — Restrict to inspection, search, read, and explain tools for safer environments
+- **Secure by default** — WHERE clauses required for updates/deletes; SQL injection safeguards for reads
 
 ## Supported AI Clients
 
@@ -80,6 +82,8 @@ npm run build
 | `READONLY`                 | No       | `"true"` for read-only mode, `"false"` for full access (default: `"false"`)          |
 | `DATABASES`                | No       | Comma-separated allowlist for multi-database access (e.g., `ProdDB,StagingDB`)       |
 | `CONNECTION_TIMEOUT`       | No       | Timeout in seconds (default: `30`)                                                   |
+| `QUERY_TIMEOUT_MS`         | No       | Query timeout in milliseconds (default: `30000`)                                     |
+| `MAX_ROWS`                 | No       | Maximum rows returned by read tools (default: `10000`)                               |
 | `TRUST_SERVER_CERTIFICATE` | No       | `"true"` for self-signed certs (e.g., local dev) (default: `"false"`)                |
 
 \* Required for SQL authentication. For Windows/Integrated authentication, consult the [mssql](https://www.npmjs.com/package/mssql) package documentation.
@@ -166,29 +170,45 @@ See `src/samples/` for example configs:
 Once configured, you can ask things like:
 
 - "Show me all users from New York"
+- "Search the customers table for email addresses containing acme.com"
 - "Create a new table called products with columns for id, name, and price"
 - "Update all pending orders to completed status"
+- "Delete inactive sessions older than 30 days"
 - "List all tables in the database"
 - "Describe the schema of the customers table"
+- "List all views and procedures in the reporting database"
+- "Explain why this SELECT query is slow"
 
 ## Available Tools
 
-| Tool             | Read-only | Description                  |
-| ---------------- | --------- | ---------------------------- |
-| `read_data`      | ✓         | Execute SELECT queries       |
-| `list_table`     | ✓         | List tables in a database    |
-| `describe_table` | ✓         | Get table schema             |
-| `insert_data`    |           | Insert rows                  |
-| `update_data`    |           | Update rows (requires WHERE) |
-| `create_table`   |           | Create tables                |
-| `create_index`   |           | Create indexes               |
-| `drop_table`     |           | Drop tables                  |
+| Tool              | Read-only | Description                                             |
+| ----------------- | --------- | ------------------------------------------------------- |
+| `read_data`       | ✓         | Execute validated SELECT queries                        |
+| `search_data`     | ✓         | Search one or more columns with parameterized `LIKE`    |
+| `explain_query`   | ✓         | Get an estimated execution plan for a SELECT query      |
+| `list_table`      | ✓         | List tables in a database                               |
+| `describe_table`  | ✓         | Get table schema                                        |
+| `list_objects`    | ✓         | List tables, views, procedures, functions, and triggers |
+| `describe_object` | ✓         | Describe an object definition and metadata              |
+| `insert_data`     |           | Insert rows                                             |
+| `update_data`     |           | Update rows (requires WHERE)                            |
+| `delete_data`     |           | Delete rows (requires WHERE)                            |
+| `create_table`    |           | Create tables                                           |
+| `create_index`    |           | Create indexes                                          |
+| `drop_table`      |           | Drop tables                                             |
+
+## Resources And Prompts
+
+Clients that support MCP resources and prompts can use additional discovery surfaces:
+
+- **Resources** — Server config, prompt catalog, per-database table lists, per-database object lists, and dynamic table/object resources
+- **Prompts** — `explore_schema`, `draft_safe_select`, and `review_write_operation`
 
 ## Security Notes
 
 - **Credentials** — Never commit `DB_USER`/`DB_PASSWORD` or config files with secrets. Use environment variables or a secrets manager.
 - **Read-only mode** — Set `READONLY: "true"` when you only need queries.
-- **WHERE clauses** — Read and update operations require explicit WHERE clauses to reduce accidental full-table operations.
+- **WHERE clauses** — Update and delete operations require explicit WHERE clauses to reduce accidental full-table changes.
 - **SQL injection** — The server validates and restricts dangerous SQL patterns.
 
 ## Contributing

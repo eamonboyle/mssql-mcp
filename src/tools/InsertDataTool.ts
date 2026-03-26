@@ -1,7 +1,14 @@
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getSqlRequest } from "../db.js";
-export class InsertDataTool implements Tool {
-  [key: string]: any;
+
+type InsertRow = Record<string, unknown>;
+
+interface InsertDataParams {
+  tableName: string;
+  data: InsertRow | InsertRow[];
+  databaseName?: string;
+}
+
+export class InsertDataTool {
   name = "insert_data";
   description = `Inserts data into an MSSQL Database table. Supports both single record insertion and multiple record insertion using standard SQL INSERT with VALUES clause.
 FORMAT EXAMPLES:
@@ -46,37 +53,8 @@ IMPORTANT RULES:
 - Column names must match the actual database table columns exactly
 - Values should match the expected data types (string, number, boolean, date)
 - Use proper date format for date columns (YYYY-MM-DD or ISO format)`;
-  inputSchema = {
-    type: "object",
-    properties: {
-      tableName: {
-        type: "string",
-        description: "Name of the table to insert data into",
-      },
-      data: {
-        oneOf: [
-          {
-            type: "object",
-            description:
-              'Single record data object with column names as keys and values as the data to insert. Example: {"name": "John", "age": 30}',
-          },
-          {
-            type: "array",
-            items: { type: "object" },
-            description:
-              'Array of data objects for multiple record insertion. Each object must have identical column structure. Example: [{"name": "John", "age": 30}, {"name": "Jane", "age": 25}]',
-          },
-        ],
-      },
-      databaseName: {
-        type: "string",
-        description:
-          "Name of the database to use (optional). Omit to use the default configured database.",
-      },
-    },
-    required: ["tableName", "data"],
-  } as any;
-  async run(params: any) {
+
+  async run(params: InsertDataParams) {
     try {
       const { tableName, data, databaseName } = params;
 

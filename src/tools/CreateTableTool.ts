@@ -1,42 +1,17 @@
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getSqlRequest } from "../db.js";
 
-export class CreateTableTool implements Tool {
-  [key: string]: any;
+interface CreateTableParams {
+  tableName: string;
+  columns: Array<{ name: string; type: string }>;
+  databaseName?: string;
+}
+
+export class CreateTableTool {
   name = "create_table";
   description =
     "Creates a new table in the MSSQL Database with the specified columns.";
-  inputSchema = {
-    type: "object",
-    properties: {
-      tableName: { type: "string", description: "Name of the table to create" },
-      columns: {
-        type: "array",
-        description:
-          "Array of column definitions (e.g., [{ name: 'id', type: 'INT PRIMARY KEY' }, ...])",
-        items: {
-          type: "object",
-          properties: {
-            name: { type: "string", description: "Column name" },
-            type: {
-              type: "string",
-              description:
-                "SQL type and constraints (e.g., 'INT PRIMARY KEY', 'NVARCHAR(255) NOT NULL')",
-            },
-          },
-          required: ["name", "type"],
-        },
-      },
-      databaseName: {
-        type: "string",
-        description:
-          "Name of the database to use (optional). Omit to use the default configured database.",
-      },
-    },
-    required: ["tableName", "columns"],
-  } as any;
 
-  async run(params: any) {
+  async run(params: CreateTableParams) {
     try {
       const { tableName, columns, databaseName } = params;
 
@@ -49,7 +24,7 @@ export class CreateTableTool implements Tool {
         throw new Error("'columns' must be a non-empty array");
       }
       const columnDefs = columns
-        .map((col: any) => `[${col.name}] ${col.type}`)
+        .map((col) => `[${col.name}] ${col.type}`)
         .join(", ");
       const query = `CREATE TABLE [${tableName}] (${columnDefs})`;
       await request.query(query);
