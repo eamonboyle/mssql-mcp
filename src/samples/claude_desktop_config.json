@@ -5,7 +5,8 @@
       "args": ["-y", "@eamonboyle/mssql-mcp"],
       "env": {
         "SERVER_NAME": "localhost",
-        "DATABASE_NAME": "YourDatabase",
+        "DATABASE_NAME": "AppDB",
+        "DATABASES": "AppDB,ReportingDB",
         "DB_USER": "your_username",
         "DB_PASSWORD": "your_password",
         "READONLY": "false"

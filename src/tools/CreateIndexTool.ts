@@ -37,7 +37,7 @@ export class CreateIndexTool implements Tool {
       databaseName: {
         type: "string",
         description:
-          "Name of the database to use (optional). Omit to use the default database.",
+          "Name of the database to use (optional). Omit to use the default configured database.",
       },
     },
     required: ["tableName", "indexName", "columns"],

@@ -71,18 +71,20 @@ npm run build
 
 ### Environment Variables
 
-| Variable                   | Required | Description                                                                 |
-| -------------------------- | -------- | --------------------------------------------------------------------------- |
-| `SERVER_NAME`              | Yes      | SQL Server host (e.g., `localhost`, `my-server.database.windows.net`)       |
-| `DATABASE_NAME`            | Yes      | Default database name                                                       |
-| `DB_USER`                  | Yes\*    | SQL Server username (for SQL authentication)                                |
-| `DB_PASSWORD`              | Yes\*    | SQL Server password (for SQL authentication)                                |
-| `READONLY`                 | No       | `"true"` for read-only mode, `"false"` for full access (default: `"false"`) |
-| `DATABASES`                | No       | Comma-separated list for multi-database access (e.g., `ProdDB,StagingDB`)   |
-| `CONNECTION_TIMEOUT`       | No       | Timeout in seconds (default: `30`)                                          |
-| `TRUST_SERVER_CERTIFICATE` | No       | `"true"` for self-signed certs (e.g., local dev) (default: `"false"`)       |
+| Variable                   | Required | Description                                                                          |
+| -------------------------- | -------- | ------------------------------------------------------------------------------------ |
+| `SERVER_NAME`              | Yes      | SQL Server host (e.g., `localhost`, `my-server.database.windows.net`)                |
+| `DATABASE_NAME`            | Yes\*\*  | Default database name. Optional when `DATABASES` is set.                             |
+| `DB_USER`                  | Yes\*    | SQL Server username (for SQL authentication)                                         |
+| `DB_PASSWORD`              | Yes\*    | SQL Server password (for SQL authentication)                                         |
+| `READONLY`                 | No       | `"true"` for read-only mode, `"false"` for full access (default: `"false"`)          |
+| `DATABASES`                | No       | Comma-separated allowlist for multi-database access (e.g., `ProdDB,StagingDB`)       |
+| `CONNECTION_TIMEOUT`       | No       | Timeout in seconds (default: `30`)                                                   |
+| `TRUST_SERVER_CERTIFICATE` | No       | `"true"` for self-signed certs (e.g., local dev) (default: `"false"`)                |
 
 \* Required for SQL authentication. For Windows/Integrated authentication, consult the [mssql](https://www.npmjs.com/package/mssql) package documentation.
+
+\*\* Required for single-database setups. When `DATABASES` is provided, `DATABASE_NAME` becomes optional and is used as the default database if set.
 
 ### Option 1: Cursor / VS Code Setup
 
@@ -96,7 +98,8 @@ npm run build
       "args": ["-y", "@eamonboyle/mssql-mcp"],
       "env": {
         "SERVER_NAME": "localhost",
-        "DATABASE_NAME": "YourDatabase",
+        "DATABASE_NAME": "AppDB",
+        "DATABASES": "AppDB,ReportingDB",
         "DB_USER": "your_username",
         "DB_PASSWORD": "your_password",
         "READONLY": "false"
@@ -121,7 +124,8 @@ npm run build
       "args": ["-y", "@eamonboyle/mssql-mcp"],
       "env": {
         "SERVER_NAME": "localhost",
-        "DATABASE_NAME": "YourDatabase",
+        "DATABASE_NAME": "AppDB",
+        "DATABASES": "AppDB,ReportingDB",
         "DB_USER": "your_username",
         "DB_PASSWORD": "your_password",
         "READONLY": "false"
@@ -148,7 +152,7 @@ To allow queries across multiple databases:
 }
 ```
 
-All tools accept an optional `databaseName` parameter. When omitted, `DATABASE_NAME` is used.
+`DATABASES` defines which databases the MCP can access. All tools accept an optional `databaseName` parameter. When omitted, the server uses `DATABASE_NAME` if set; otherwise it falls back to the first entry in `DATABASES`.
 
 ## Sample Configurations
 

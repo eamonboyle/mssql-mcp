@@ -1,15 +1,57 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-// Mock mssql to avoid loading native deps and transitive issues in test env
-vi.mock("mssql", () => ({}));
+const mssqlMockState = vi.hoisted(() => ({
+  poolConfigs: [] as Array<{ database?: string }>,
+  requestObject: { kind: "mock-request" },
+  connectCalls: vi.fn(),
+  closeCalls: vi.fn(),
+  requestCalls: vi.fn(),
+}));
 
-import { getAllowedDatabases, resolveDatabaseName } from "../db.js";
+// Mock mssql to avoid loading native deps and transitive issues in test env
+vi.mock("mssql", () => {
+  class MockConnectionPool {
+    connected = false;
+
+    constructor(private readonly config: { database?: string }) {
+      mssqlMockState.poolConfigs.push(config);
+    }
+
+    async connect() {
+      this.connected = true;
+      mssqlMockState.connectCalls(this.config);
+      return this;
+    }
+
+    async close() {
+      this.connected = false;
+      mssqlMockState.closeCalls(this.config);
+    }
+
+    request() {
+      mssqlMockState.requestCalls(this.config);
+      return mssqlMockState.requestObject;
+    }
+  }
+
+  return {
+    default: {
+      ConnectionPool: MockConnectionPool,
+    },
+  };
+});
+
+import { getAllowedDatabases, getSqlRequest, resolveDatabaseName } from "../db.js";
 
 describe("getAllowedDatabases", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    mssqlMockState.poolConfigs.length = 0;
+    mssqlMockState.connectCalls.mockClear();
+    mssqlMockState.closeCalls.mockClear();
+    mssqlMockState.requestCalls.mockClear();
   });
 
   afterEach(() => {
@@ -69,6 +111,10 @@ describe("resolveDatabaseName", () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    mssqlMockState.poolConfigs.length = 0;
+    mssqlMockState.connectCalls.mockClear();
+    mssqlMockState.closeCalls.mockClear();
+    mssqlMockState.requestCalls.mockClear();
   });
 
   afterEach(() => {
@@ -87,10 +133,28 @@ describe("resolveDatabaseName", () => {
     expect(resolveDatabaseName()).toBe("DefaultDb");
   });
 
-  it("returns param when param provided and in allowed list (DATABASE_NAME fallback)", () => {
+  it("returns DATABASE_NAME when it is in DATABASES", () => {
+    process.env.DATABASES = "ProdDB,StagingDB";
+    process.env.DATABASE_NAME = "StagingDB";
+    expect(resolveDatabaseName()).toBe("StagingDB");
+  });
+
+  it("returns the first DATABASES entry when DATABASE_NAME is omitted", () => {
+    process.env.DATABASES = "ProdDB,StagingDB";
+    delete process.env.DATABASE_NAME;
+    expect(resolveDatabaseName()).toBe("ProdDB");
+  });
+
+  it("returns param when param provided and in allowed list", () => {
     process.env.DATABASES = "ProdDB,StagingDB";
     process.env.DATABASE_NAME = "ProdDB";
     expect(resolveDatabaseName("StagingDB")).toBe("StagingDB");
+  });
+
+  it("returns null when DATABASE_NAME is not included in DATABASES", () => {
+    process.env.DATABASES = "ProdDB,StagingDB";
+    process.env.DATABASE_NAME = "OtherDb";
+    expect(resolveDatabaseName()).toBeNull();
   });
 
   it("returns null when param not in allowed list", () => {
@@ -110,12 +174,73 @@ describe("resolveDatabaseName", () => {
     process.env.DATABASE_NAME = "MyDb";
     expect(resolveDatabaseName()).toBe("MyDb");
     expect(resolveDatabaseName("MyDb")).toBe("MyDb");
-    // When DATABASES is not set, getAllowedDatabases returns [DATABASE_NAME], so only MyDb is allowed
     expect(resolveDatabaseName("AnyDb")).toBeNull();
   });
 
   it("trims whitespace from param", () => {
     process.env.DATABASES = "ProdDB";
     expect(resolveDatabaseName("  ProdDB  ")).toBe("ProdDB");
+  });
+
+  it("returns null when neither DATABASE_NAME nor DATABASES is configured", () => {
+    delete process.env.DATABASE_NAME;
+    delete process.env.DATABASES;
+    expect(resolveDatabaseName()).toBeNull();
+  });
+});
+
+describe("getSqlRequest", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    mssqlMockState.poolConfigs.length = 0;
+    mssqlMockState.connectCalls.mockClear();
+    mssqlMockState.closeCalls.mockClear();
+    mssqlMockState.requestCalls.mockClear();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("returns a helpful error when no database access is configured", async () => {
+    delete process.env.DATABASE_NAME;
+    delete process.env.DATABASES;
+
+    const result = await getSqlRequest();
+
+    expect(result.error).toBe(
+      "Invalid or disallowed database. Set DATABASE_NAME or DATABASES to configure database access. Use the databaseName parameter to target a specific configured database."
+    );
+  });
+
+  it("returns allowed databases in the error when a disallowed database is requested", async () => {
+    process.env.DATABASES = "ProdDB,StagingDB";
+
+    const result = await getSqlRequest("OtherDb");
+
+    expect(result.error).toBe(
+      "Invalid or disallowed database. Allowed: ProdDB, StagingDB. Use the databaseName parameter to target a specific configured database."
+    );
+  });
+
+  it("returns a request using the resolved default database", async () => {
+    process.env.DATABASES = "ProdDBDefault,StagingDB";
+    delete process.env.DATABASE_NAME;
+
+    const result = await getSqlRequest();
+
+    expect(result.error).toBeUndefined();
+    expect(result.request).toBe(mssqlMockState.requestObject);
+    expect(mssqlMockState.poolConfigs).toContainEqual(
+      expect.objectContaining({ database: "ProdDBDefault" })
+    );
+    expect(mssqlMockState.connectCalls).toHaveBeenCalledWith(
+      expect.objectContaining({ database: "ProdDBDefault" })
+    );
+    expect(mssqlMockState.requestCalls).toHaveBeenCalledWith(
+      expect.objectContaining({ database: "ProdDBDefault" })
+    );
   });
 });

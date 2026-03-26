@@ -19,7 +19,7 @@ export class ReadDataTool implements Tool {
       databaseName: {
         type: "string",
         description:
-          "Name of the database to query (optional). Omit to use the default database.",
+          "Name of the database to query (optional). Omit to use the default configured database.",
       },
     },
     required: ["query"],
