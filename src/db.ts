@@ -3,19 +3,43 @@ import sql from "mssql";
 // Connection pools keyed by database name
 const sqlPools = new Map<string, sql.ConnectionPool>();
 
+function parseDatabaseList(value?: string): string[] {
+  if (!value || !value.trim()) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((db) => db.trim())
+    .filter(Boolean);
+}
+
+function getDefaultDatabaseName(): string | null {
+  const allowedDatabases = parseDatabaseList(process.env.DATABASES);
+  const explicitDefault = process.env.DATABASE_NAME?.trim();
+
+  if (allowedDatabases.length === 0) {
+    return explicitDefault ?? null;
+  }
+
+  if (explicitDefault && allowedDatabases.includes(explicitDefault)) {
+    return explicitDefault;
+  }
+
+  return allowedDatabases[0] ?? null;
+}
+
 /**
  * Returns the list of allowed database names.
  * If DATABASES is set, returns those; otherwise returns only DATABASE_NAME.
  */
 export function getAllowedDatabases(): string[] {
-  const databasesEnv = process.env.DATABASES;
-  if (databasesEnv && databasesEnv.trim()) {
-    return databasesEnv
-      .split(",")
-      .map((db) => db.trim())
-      .filter(Boolean);
+  const allowedDatabases = parseDatabaseList(process.env.DATABASES);
+  if (allowedDatabases.length > 0) {
+    return allowedDatabases;
   }
-  const defaultDb = process.env.DATABASE_NAME;
+
+  const defaultDb = process.env.DATABASE_NAME?.trim();
   return defaultDb ? [defaultDb] : [];
 }
 
@@ -24,11 +48,11 @@ export function getAllowedDatabases(): string[] {
  * Returns null if invalid.
  */
 export function resolveDatabaseName(databaseName?: string): string | null {
-  const resolved = databaseName?.trim() || process.env.DATABASE_NAME?.trim();
+  const resolved = databaseName?.trim() || getDefaultDatabaseName();
   if (!resolved) return null;
 
   const allowed = getAllowedDatabases();
-  if (allowed.length === 0) return resolved; // No validation if nothing configured
+  if (allowed.length === 0) return null;
   if (allowed.includes(resolved)) return resolved;
   return null;
 }
@@ -93,9 +117,14 @@ export async function getSqlRequest(
   const resolved = resolveDatabaseName(databaseName);
   if (!resolved) {
     const allowed = getAllowedDatabases();
+    const configurationHint =
+      allowed.length > 0
+        ? `Allowed: ${allowed.join(", ")}.`
+        : "Set DATABASE_NAME or DATABASES to configure database access.";
+
     return {
       request: null as any,
-      error: `Invalid or disallowed database. Allowed: ${allowed.join(", ") || "DATABASE_NAME"}. Use databaseName parameter to target a specific database.`,
+      error: `Invalid or disallowed database. ${configurationHint} Use the databaseName parameter to target a specific configured database.`,
     };
   }
 
