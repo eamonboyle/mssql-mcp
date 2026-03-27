@@ -187,7 +187,7 @@ Once configured, you can ask things like:
 | `search_data`     | ✓         | Search one or more columns with parameterized `LIKE`    |
 | `explain_query`   | ✓         | Get an estimated execution plan for a SELECT query      |
 | `list_table`      | ✓         | List tables in a database                               |
-| `describe_table`  | ✓         | Get table schema                                        |
+| `describe_table`  | ✓         | Get table schema (optional `schemaName`)                |
 | `list_objects`    | ✓         | List tables, views, procedures, functions, and triggers |
 | `describe_object` | ✓         | Describe an object definition and metadata              |
 | `insert_data`     |           | Insert rows                                             |
@@ -203,6 +203,10 @@ Clients that support MCP resources and prompts can use additional discovery surf
 
 - **Resources** — Server config, prompt catalog, per-database table lists, per-database object lists, and dynamic table/object resources
 - **Prompts** — `explore_schema`, `draft_safe_select`, and `review_write_operation`
+
+## Changelog
+
+Release notes: [CHANGELOG.md](https://github.com/eamonboyle/mssql-mcp/blob/main/CHANGELOG.md).
 
 ## Security Notes
 
