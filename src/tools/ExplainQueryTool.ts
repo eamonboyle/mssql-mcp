@@ -7,6 +7,19 @@ interface ExplainQueryParams {
   databaseName?: string;
 }
 
+function cellLooksLikeShowPlanXml(value: unknown): string | null {
+  if (typeof value === "string" && value.trimStart().startsWith("<")) {
+    return value;
+  }
+  if (Buffer.isBuffer(value)) {
+    const s = value.toString("utf16le").trimStart();
+    if (s.startsWith("<")) {
+      return s;
+    }
+  }
+  return null;
+}
+
 function extractPlanXml(recordsets: unknown): string | null {
   if (!Array.isArray(recordsets)) {
     return null;
@@ -22,9 +35,11 @@ function extractPlanXml(recordsets: unknown): string | null {
       continue;
     }
 
-    const firstValue = Object.values(firstRow)[0];
-    if (typeof firstValue === "string" && firstValue.trim().startsWith("<")) {
-      return firstValue;
+    for (const value of Object.values(firstRow)) {
+      const xml = cellLooksLikeShowPlanXml(value);
+      if (xml) {
+        return xml;
+      }
     }
   }
 
@@ -38,8 +53,6 @@ export class ExplainQueryTool {
 
   async run(params: ExplainQueryParams) {
     let pool: sql.ConnectionPool | undefined;
-    let transaction: sql.Transaction | undefined;
-    let transactionStarted = false;
     let showplanEnabled = false;
 
     try {
@@ -59,14 +72,14 @@ export class ExplainQueryTool {
       }
 
       pool = dedicatedPool;
-      transaction = new sql.Transaction(pool);
-      await transaction.begin();
-      transactionStarted = true;
 
-      await new sql.Request(transaction).query("SET SHOWPLAN_XML ON");
+      // Same pattern as SSMS: separate batches on one session, no explicit transaction.
+      // BEGIN TRANSACTION can prevent SHOWPLAN_XML from affecting the following SELECT.
+      // Use batch() so batches go through execSqlBatch (closer to SSMS client batch boundaries).
+      await pool.request().batch("SET SHOWPLAN_XML ON");
       showplanEnabled = true;
 
-      const planResult = await new sql.Request(transaction).query(query);
+      const planResult = await pool.request().batch(query);
       const planXml = extractPlanXml(planResult.recordsets);
 
       return {
@@ -75,7 +88,7 @@ export class ExplainQueryTool {
           ? "Estimated execution plan generated successfully."
           : "Execution plan request completed, but no XML plan was returned.",
         planXml,
-        recordsets: planResult.recordsets,
+        recordsets: planXml ? undefined : planResult.recordsets,
       };
     } catch (error) {
       console.error("Error explaining query:", error);
@@ -84,19 +97,11 @@ export class ExplainQueryTool {
         message: `Failed to explain query: ${error}`,
       };
     } finally {
-      if (transaction && transactionStarted && showplanEnabled) {
+      if (pool && showplanEnabled) {
         try {
-          await new sql.Request(transaction).query("SET SHOWPLAN_XML OFF");
+          await pool.request().batch("SET SHOWPLAN_XML OFF");
         } catch (cleanupError) {
           console.error("Failed to disable SHOWPLAN_XML:", cleanupError);
-        }
-      }
-
-      if (transaction && transactionStarted) {
-        try {
-          await transaction.rollback();
-        } catch {
-          // Ignore rollback errors during cleanup.
         }
       }
 
