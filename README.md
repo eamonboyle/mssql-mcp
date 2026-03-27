@@ -4,8 +4,8 @@
 [![npm version](https://img.shields.io/npm/v/@eamonboyle/mssql-mcp.svg)](https://www.npmjs.com/package/@eamonboyle/mssql-mcp)
 [![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 
-[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=MSSQL&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBlYW1vbmJveWxlL21zc3FsLW1jcCJdLCJlbnYiOnsiU0VSVkVSX05BTUUiOiJsb2NhbGhvc3QiLCJEQVRBQkFTRV9OQU1FIjoiWW91ckRhdGFiYXNlIiwiREJfVVNFUiI6IiIsIkRCX1BBU1NXT1JEIjoiIiwiUkVBRE9OTFkiOiJmYWxzZSJ9fQ==)
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://intradeus.github.io/http-protocol-redirector?r=vscode%3A%2F%2Fmcp%2Finstall%3F%257B%2522name%2522%253A%2522mssql%2522%252C%2522type%2522%253A%2522stdio%2522%252C%2522command%2522%253A%2522npx%2522%252C%2522args%2522%253A%255B%2522-y%2522%252C%2522%2540eamonboyle%252Fmssql-mcp%2522%255D%252C%2522env%2522%253A%257B%2522SERVER_NAME%2522%253A%2522localhost%2522%252C%2522DATABASE_NAME%2522%253A%2522YourDatabase%2522%252C%2522DB_USER%2522%253A%2522%2522%252C%2522DB_PASSWORD%2522%253A%2522%2522%252C%2522READONLY%2522%253A%2522false%2522%257D%257D)
+[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=MSSQL&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBlYW1vbmJveWxlL21zc3FsLW1jcCJdLCJlbnYiOnsiU0VSVkVSX05BTUUiOiJsb2NhbGhvc3QiLCJEQVRBQkFTRV9OQU1FIjoiWW91ckRhdGFiYXNlIiwiREFUQUJBU0VTIjoiIiwiREJfVVNFUiI6IiIsIkRCX1BBU1NXT1JEIjoiIiwiUkVBRE9OTFkiOiJmYWxzZSIsIkNPTk5FQ1RJT05fVElNRU9VVCI6IjMwIiwiUVVFUllfVElNRU9VVF9NUyI6IjMwMDAwIiwiTUFYX1JPV1MiOiIxMDAwMCIsIlRSVVNUX1NFUlZFUl9DRVJUSUZJQ0FURSI6ImZhbHNlIn19)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://intradeus.github.io/http-protocol-redirector?r=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522mssql%2522%252C%2522command%2522%253A%2522npx%2522%252C%2522args%2522%253A%255B%2522-y%2522%252C%2522%2540eamonboyle%252Fmssql-mcp%2522%255D%252C%2522env%2522%253A%257B%2522SERVER_NAME%2522%253A%2522localhost%2522%252C%2522DATABASE_NAME%2522%253A%2522YourDatabase%2522%252C%2522DATABASES%2522%253A%2522%2522%252C%2522DB_USER%2522%253A%2522%2522%252C%2522DB_PASSWORD%2522%253A%2522%2522%252C%2522READONLY%2522%253A%2522false%2522%252C%2522CONNECTION_TIMEOUT%2522%253A%252230%2522%252C%2522QUERY_TIMEOUT_MS%2522%253A%252230000%2522%252C%2522MAX_ROWS%2522%253A%252210000%2522%252C%2522TRUST_SERVER_CERTIFICATE%2522%253A%2522false%2522%257D%257D)
 
 > ⚠️ **EXPERIMENTAL USE ONLY** — This MCP Server is provided for educational and experimental purposes. It is NOT intended for production use. Use appropriate security measures and test thoroughly before any deployment.
 
@@ -42,7 +42,11 @@ AI: *queries your MSSQL database and returns the results in plain English*
 
 ### One-Click Install (Cursor / VS Code)
 
-Click **Add to Cursor** or **Install in VS Code** above to add the MCP server. Edit the config to add your database credentials (`DB_USER`, `DB_PASSWORD`, etc.). No cloning required—runs via `npx`.
+Click **Add to Cursor** or **Install in VS Code** above to add the MCP server—no cloning required; it runs via `npx`.
+
+**Cursor** opens a dedicated install page that lists env vars you can edit before saving (similar to a short form).
+
+**VS Code** only applies the JSON embedded in the `vscode:mcp/install` link: you get static placeholder values, not an interactive database wizard. To be prompted for host, database, and credentials when the server starts, add [`inputs`](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration#_input-variables-for-sensitive-data) to `.vscode/mcp.json` as in the **Prompted inputs** example under **VS Code (`mcp.json`)** below.
 
 ### Prerequisites
 
@@ -90,9 +94,9 @@ npm run build
 
 \*\* Required for single-database setups. When `DATABASES` is provided, `DATABASE_NAME` becomes optional and is used as the default database if set.
 
-### Option 1: Cursor / VS Code Setup
+### Cursor (`mcp.json`)
 
-1. Create or edit `.vscode/mcp.json` in your workspace:
+Use [global or project MCP config](https://cursor.com/docs/context/mcp): e.g. `~/.cursor/mcp.json` or `.cursor/mcp.json` in your repo.
 
 ```json
 {
@@ -113,9 +117,93 @@ npm run build
 }
 ```
 
-2. Restart Cursor/VS Code.
+Restart Cursor after changes.
 
-### Option 2: Claude Desktop Setup
+### VS Code (`mcp.json`)
+
+VS Code uses `.vscode/mcp.json` (or **MCP: Open User Configuration**) with a top-level [`servers`](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration) object—**not** `mcpServers`.
+
+**Static env** (same idea as the one-click link; edit values in the file):
+
+```json
+{
+  "servers": {
+    "mssql": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@eamonboyle/mssql-mcp"],
+      "env": {
+        "SERVER_NAME": "localhost",
+        "DATABASE_NAME": "AppDB",
+        "DATABASES": "AppDB,ReportingDB",
+        "DB_USER": "your_username",
+        "DB_PASSWORD": "your_password",
+        "READONLY": "false",
+        "CONNECTION_TIMEOUT": "30",
+        "QUERY_TIMEOUT_MS": "30000",
+        "MAX_ROWS": "10000",
+        "TRUST_SERVER_CERTIFICATE": "false"
+      }
+    }
+  }
+}
+```
+
+**Prompted inputs** (closest to Cursor’s hosted form: VS Code asks on first start, then stores values). Use `${input:…}` in `env` and define matching entries under `inputs`:
+
+```json
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "mssql-server",
+      "description": "SQL Server host (e.g. localhost or my-server.database.windows.net)"
+    },
+    {
+      "type": "promptString",
+      "id": "mssql-database",
+      "description": "Default database name"
+    },
+    {
+      "type": "promptString",
+      "id": "mssql-databases",
+      "description": "Optional: comma-separated DB allowlist (e.g. AppDB,ReportingDB). Leave empty for a single database."
+    },
+    {
+      "type": "promptString",
+      "id": "mssql-user",
+      "description": "SQL Server login (SQL authentication)"
+    },
+    {
+      "type": "promptString",
+      "id": "mssql-password",
+      "description": "SQL Server password",
+      "password": true
+    }
+  ],
+  "servers": {
+    "mssql": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@eamonboyle/mssql-mcp"],
+      "env": {
+        "SERVER_NAME": "${input:mssql-server}",
+        "DATABASE_NAME": "${input:mssql-database}",
+        "DATABASES": "${input:mssql-databases}",
+        "DB_USER": "${input:mssql-user}",
+        "DB_PASSWORD": "${input:mssql-password}",
+        "READONLY": "false",
+        "CONNECTION_TIMEOUT": "30",
+        "QUERY_TIMEOUT_MS": "30000",
+        "MAX_ROWS": "10000",
+        "TRUST_SERVER_CERTIFICATE": "false"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop Setup
 
 1. Open **File → Settings → Developer → Edit Config**
 2. Add the MCP server configuration:
