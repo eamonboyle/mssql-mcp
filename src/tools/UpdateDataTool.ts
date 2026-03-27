@@ -1,62 +1,49 @@
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getSqlRequest } from "../db.js";
+import { buildQualifiedName, quoteIdentifier } from "../sql.js";
+import { buildParameterizedWhereClause, type SqlFilter } from "../writeSafety.js";
 
-export class UpdateDataTool implements Tool {
-  [key: string]: any;
+interface UpdateDataParams {
+  tableName: string;
+  updates: Record<string, unknown>;
+  filters: SqlFilter[];
+  databaseName?: string;
+}
+
+export class UpdateDataTool {
   name = "update_data";
   description =
-    "Updates data in an MSSQL Database table using a WHERE clause. The WHERE clause must be provided for security.";
-  inputSchema = {
-    type: "object",
-    properties: {
-      tableName: {
-        type: "string",
-        description: "Name of the table to update",
-      },
-      updates: {
-        type: "object",
-        description:
-          "Key-value pairs of columns to update. Example: { 'status': 'active', 'last_updated': '2025-01-01' }",
-      },
-      whereClause: {
-        type: "string",
-        description:
-          "WHERE clause to identify which records to update. Example: \"genre = 'comedy' AND created_date <= '2025-07-05'\"",
-      },
-      databaseName: {
-        type: "string",
-        description:
-          "Name of the database to use (optional). Omit to use the default configured database.",
-      },
-    },
-    required: ["tableName", "updates", "whereClause"],
-  } as any;
+    "Updates data in an MSSQL Database table using required structured filters.";
 
-  async run(params: any) {
+  async run(params: UpdateDataParams) {
     let query: string | undefined;
     try {
-      const { tableName, updates, whereClause, databaseName } = params;
+      const { tableName, updates, filters, databaseName } = params;
 
       const { request, error } = await getSqlRequest(databaseName);
       if (error) {
         return { success: false, message: error };
       }
 
-      // Basic validation: ensure whereClause is not empty
-      if (!whereClause || whereClause.trim() === "") {
-        throw new Error("WHERE clause is required for security reasons");
+      const updateColumns = Object.keys(updates);
+      if (updateColumns.length === 0) {
+        throw new Error("At least one column update is required.");
       }
 
-      // Build SET clause with parameterized queries for security
-      const setClause = Object.keys(updates)
+      const setClause = updateColumns
         .map((key, index) => {
           const paramName = `update_${index}`;
           request.input(paramName, updates[key]);
-          return `[${key}] = @${paramName}`;
+          return `${quoteIdentifier(key)} = @${paramName}`;
         })
         .join(", ");
 
-      query = `UPDATE ${tableName} SET ${setClause} WHERE ${whereClause}`;
+      const whereClause = buildParameterizedWhereClause(
+        filters,
+        (name, value) => request.input(name, value),
+        "update_filter"
+      );
+
+      query = `UPDATE ${buildQualifiedName(tableName)} SET ${setClause} WHERE ${whereClause}`;
       const result = await request.query(query);
 
       return {

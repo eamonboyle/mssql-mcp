@@ -1,6 +1,6 @@
 {
   "name": "@eamonboyle/mssql-mcp",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "MCP server for Microsoft SQL Server - query and manage your database with natural language in Cursor, Claude, and VS Code",
   "keywords": [
     "mcp",
@@ -49,14 +49,15 @@
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",
     "shx": "^0.3.4",
-    "typescript": "^4.9.5",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.55.0",
     "vitest": "^2.1.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.28.0",
     "dotenv": "^10.0.0",
-    "mssql": "^11.0.1"
+    "mssql": "^11.0.1",
+    "zod": "^4.3.6"
   },
   "type": "module"
 }

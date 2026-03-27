@@ -1,42 +1,29 @@
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { getMaxRows } from "../config.js";
 import { getSqlRequest } from "../db.js";
 import { validateReadQuery } from "../validation.js";
 
-export class ReadDataTool implements Tool {
-  [key: string]: any;
+interface ReadDataParams {
+  query: string;
+  databaseName?: string;
+}
+
+export class ReadDataTool {
   name = "read_data";
   description =
     "Executes a SELECT query on an MSSQL Database table. The query must start with SELECT and cannot contain any destructive SQL operations for security reasons.";
-
-  inputSchema = {
-    type: "object",
-    properties: {
-      query: {
-        type: "string",
-        description:
-          "SQL SELECT query to execute (must start with SELECT and cannot contain destructive operations). Example: SELECT * FROM movies WHERE genre = 'comedy'",
-      },
-      databaseName: {
-        type: "string",
-        description:
-          "Name of the database to query (optional). Omit to use the default configured database.",
-      },
-    },
-    required: ["query"],
-  } as any;
 
   /**
    * Sanitizes the query result to prevent any potential security issues
    * @param data The query result data
    * @returns Sanitized data
    */
-  private sanitizeResult(data: any[]): any[] {
+  private sanitizeResult(data: unknown[]): unknown[] {
     if (!Array.isArray(data)) {
       return [];
     }
 
     // Limit the number of returned records to prevent memory issues
-    const maxRecords = 10000;
+    const maxRecords = getMaxRows();
     if (data.length > maxRecords) {
       console.warn(
         `Query returned ${data.length} records, limiting to ${maxRecords}`
@@ -46,7 +33,7 @@ export class ReadDataTool implements Tool {
 
     return data.map((record) => {
       if (typeof record === "object" && record !== null) {
-        const sanitized: any = {};
+        const sanitized: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(record)) {
           // Sanitize column names (remove any suspicious characters)
           const sanitizedKey = key.replace(/[^\w\s-_.]/g, "");
@@ -66,7 +53,7 @@ export class ReadDataTool implements Tool {
    * @param params Query parameters
    * @returns Query execution result
    */
-  async run(params: any) {
+  async run(params: ReadDataParams) {
     try {
       const { query, databaseName } = params;
 

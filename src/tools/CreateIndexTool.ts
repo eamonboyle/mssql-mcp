@@ -1,49 +1,22 @@
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getSqlRequest } from "../db.js";
+import { buildQualifiedName, quoteIdentifier } from "../sql.js";
 
-export class CreateIndexTool implements Tool {
-  [key: string]: any;
+interface CreateIndexParams {
+  schemaName?: string;
+  tableName: string;
+  indexName: string;
+  columns: string[];
+  isUnique?: boolean;
+  isClustered?: boolean;
+  databaseName?: string;
+}
+
+export class CreateIndexTool {
   name = "create_index";
   description =
     "Creates an index on a specified column or columns in an MSSQL Database table";
-  inputSchema = {
-    type: "object",
-    properties: {
-      schemaName: {
-        type: "string",
-        description: "Name of the schema containing the table",
-      },
-      tableName: {
-        type: "string",
-        description: "Name of the table to create index on",
-      },
-      indexName: { type: "string", description: "Name for the new index" },
-      columns: {
-        type: "array",
-        items: { type: "string" },
-        description: "Array of column names to include in the index",
-      },
-      isUnique: {
-        type: "boolean",
-        description:
-          "Whether the index should enforce uniqueness (default: false)",
-        default: false,
-      },
-      isClustered: {
-        type: "boolean",
-        description: "Whether the index should be clustered (default: false)",
-        default: false,
-      },
-      databaseName: {
-        type: "string",
-        description:
-          "Name of the database to use (optional). Omit to use the default configured database.",
-      },
-    },
-    required: ["tableName", "indexName", "columns"],
-  } as any;
 
-  async run(params: any) {
+  async run(params: CreateIndexParams) {
     try {
       const {
         schemaName,
@@ -64,9 +37,13 @@ export class CreateIndexTool implements Tool {
       if (isUnique) {
         indexType = `UNIQUE ${indexType}`;
       }
-      const columnNames = columns.join(", ");
-      const tableRef = schemaName ? `${schemaName}.${tableName}` : tableName;
-      const query = `CREATE ${indexType} INDEX ${indexName} ON ${tableRef} (${columnNames})`;
+      if (!Array.isArray(columns) || columns.length === 0) {
+        throw new Error("At least one column is required to create an index.");
+      }
+
+      const columnNames = columns.map((columnName) => quoteIdentifier(columnName)).join(", ");
+      const tableRef = buildQualifiedName(tableName, schemaName);
+      const query = `CREATE ${indexType} INDEX ${quoteIdentifier(indexName)} ON ${tableRef} (${columnNames})`;
       await request.query(query);
 
       return {

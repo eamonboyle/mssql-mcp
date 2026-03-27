@@ -22,7 +22,7 @@ describe("validateReadQuery", () => {
       isValid: false,
       error: "Query cannot be empty after removing comments",
     });
-    expect(validateReadQuery(null as any)).toEqual({
+    expect(validateReadQuery(null as unknown as string)).toEqual({
       isValid: false,
       error: "Query must be a non-empty string",
     });

@@ -1,42 +1,24 @@
-import sql from "mssql";
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getSqlRequest } from "../db.js";
+import { describeTableSchema } from "../schema.js";
 
-export class DescribeTableTool implements Tool {
-  [key: string]: any;
+interface DescribeTableParams {
+  tableName: string;
+  schemaName?: string;
+  databaseName?: string;
+}
+
+export class DescribeTableTool {
   name = "describe_table";
   description =
     "Describes the schema (columns and types) of a specified MSSQL Database table.";
-  inputSchema = {
-    type: "object",
-    properties: {
-      tableName: {
-        type: "string",
-        description: "Name of the table to describe",
-      },
-      databaseName: {
-        type: "string",
-        description:
-          "Name of the database to use (optional). Omit to use the default configured database.",
-      },
-    },
-    required: ["tableName"],
-  } as any;
 
-  async run(params: { tableName: string; databaseName?: string }) {
+  async run(params: DescribeTableParams) {
     try {
-      const { tableName, databaseName } = params;
+      const { tableName, schemaName, databaseName } = params;
+      const columns = await describeTableSchema(tableName, databaseName, schemaName);
 
-      const { request, error } = await getSqlRequest(databaseName);
-      if (error) {
-        return { success: false, message: error };
-      }
-      const query = `SELECT COLUMN_NAME as name, DATA_TYPE as type FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @tableName`;
-      request.input("tableName", sql.NVarChar, tableName);
-      const result = await request.query(query);
       return {
         success: true,
-        columns: result.recordset,
+        columns,
       };
     } catch (error) {
       return {
