@@ -18,14 +18,20 @@ const isReadOnly = process.env.READONLY === "true";
 const allowedDatabases = getAllowedDatabases();
 const availableTools = getAvailableTools(isReadOnly);
 
+const baseInstructions =
+  "Use list_objects or list_table to inspect schema before querying data. Prefer read_data, search_data, and explain_query for safe read-only analysis.";
+const readOnlyInstructions =
+  " This server is READONLY: write/DDL MCP tools are disabled. Never use sqlcmd, SSMS, other DB CLI tools, or terminal scripts to perform INSERT, UPDATE, DELETE, or DDL as a workaround—state that the user must set READONLY=false on this server or apply changes themselves.";
+
 const server = new McpServer(
   {
     name: SERVER_NAME,
     version: SERVER_VERSION,
   },
   {
-    instructions:
-      "Use list_objects or list_table to inspect schema before querying data. Prefer read_data, search_data, and explain_query for safe read-only analysis.",
+    instructions: isReadOnly
+      ? baseInstructions + readOnlyInstructions
+      : baseInstructions,
   }
 );
 
@@ -67,7 +73,7 @@ registerResources(server, {
   maxRows: getMaxRows(),
   queryTimeoutMs: getQueryTimeoutMs(),
 });
-registerPrompts(server);
+registerPrompts(server, { isReadOnly });
 
 async function runServer() {
   try {
