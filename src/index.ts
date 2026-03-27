@@ -11,7 +11,7 @@ import { registerPrompts } from "./promptRegistry.js";
 import { registerResources } from "./resourceRegistry.js";
 import { getAvailableTools } from "./toolRegistry.js";
 
-const SERVER_VERSION = "1.1.0";
+const SERVER_VERSION = "1.2.0";
 const SERVER_NAME = "mssql-mcp-server";
 
 const isReadOnly = process.env.READONLY === "true";

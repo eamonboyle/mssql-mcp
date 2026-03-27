@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 const resourceRegistryMockState = vi.hoisted(() => ({
-  listDatabaseTables: vi.fn(async () => [{ schemaName: "dbo", tableName: "Users" }]),
+  listDatabaseTables: vi.fn(async () => [
+    { schemaName: "dbo", tableName: "Users" },
+  ]),
   listDatabaseObjects: vi.fn(async () => []),
 }));
 
@@ -30,7 +32,7 @@ describe("resourceRegistry", () => {
 
     registerResources(server as never, {
       serverName: "mssql-mcp-server",
-      serverVersion: "1.1.0",
+      serverVersion: "1.2.0",
       isReadOnly: false,
       allowedDatabases: ["AppDb"],
       toolNames: [],
@@ -44,7 +46,11 @@ describe("resourceRegistry", () => {
     await readTables?.(new URL("mssql://database/AppDb/tables"));
     await readTables?.(new URL("mssql://database/AppDb/tables"));
 
-    expect(resourceRegistryMockState.listDatabaseTables).toHaveBeenCalledTimes(1);
-    expect(resourceRegistryMockState.listDatabaseObjects).not.toHaveBeenCalled();
+    expect(resourceRegistryMockState.listDatabaseTables).toHaveBeenCalledTimes(
+      1
+    );
+    expect(
+      resourceRegistryMockState.listDatabaseObjects
+    ).not.toHaveBeenCalled();
   });
 });
