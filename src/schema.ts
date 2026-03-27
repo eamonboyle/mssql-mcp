@@ -179,7 +179,7 @@ export async function describeDatabaseObject(
 
   const schemaFilter = schemaName ? "AND s.name = @schemaName" : "";
   const objectResult = await request.query(`
-    SELECT TOP 1
+    SELECT TOP (2)
       o.object_id AS objectId,
       o.name,
       s.name AS schemaName,
@@ -195,22 +195,30 @@ export async function describeDatabaseObject(
       AND o.name = @objectName
       ${schemaFilter}
       ${typeFilter}
+    ORDER BY s.name, o.type, o.name
   `);
 
-  const objectRow = objectResult.recordset[0];
+  const objectRows = objectResult.recordset;
+  if (objectRows.length > 1) {
+    const matches = objectRows
+      .map(
+        (row) =>
+          `${row.schemaName}.${row.name} (${getFriendlyObjectType(row.typeCode)})`
+      )
+      .join(", ");
+    throw new Error(
+      `Multiple objects named '${objectName}' matched the request. Specify schemaName or objectTypes to disambiguate. Matches: ${matches}.`
+    );
+  }
+
+  const objectRow = objectRows[0];
   if (!objectRow) {
     return null;
   }
 
-  const detailRequestResult = await getSqlRequest(databaseName);
-  if (detailRequestResult.error) {
-    throw new Error(detailRequestResult.error);
-  }
+  request.input("objectId", sql.Int, objectRow.objectId);
 
-  const detailRequest = detailRequestResult.request;
-  detailRequest.input("objectId", sql.Int, objectRow.objectId);
-
-  const columnsResult = await detailRequest.query(`
+  const detailsResult = await request.query(`
     SELECT
       c.name,
       t.name AS dataType,
@@ -226,17 +234,8 @@ export async function describeDatabaseObject(
       ON dc.parent_object_id = c.object_id
       AND dc.parent_column_id = c.column_id
     WHERE c.object_id = @objectId
-    ORDER BY c.column_id
-  `);
+    ORDER BY c.column_id;
 
-  const indexRequestResult = await getSqlRequest(databaseName);
-  if (indexRequestResult.error) {
-    throw new Error(indexRequestResult.error);
-  }
-
-  const indexRequest = indexRequestResult.request;
-  indexRequest.input("objectId", sql.Int, objectRow.objectId);
-  const indexesResult = await indexRequest.query(`
     SELECT
       i.name,
       i.type_desc AS type,
@@ -255,13 +254,28 @@ export async function describeDatabaseObject(
       AND i.name IS NOT NULL
     ORDER BY i.name, ic.key_ordinal
   `);
+  const detailRecordsets = Array.isArray(detailsResult.recordsets)
+    ? detailsResult.recordsets
+    : [];
+  const columnsRecordset = (Array.isArray(detailRecordsets[0])
+    ? detailRecordsets[0]
+    : []) as DatabaseObjectDescription["columns"];
+  const indexesRecordset = (Array.isArray(detailRecordsets[1])
+    ? detailRecordsets[1]
+    : []) as Array<{
+    name: string;
+    type: string;
+    isUnique: boolean;
+    columnName: string;
+    keyOrdinal: number;
+  }>;
 
   const indexes = new Map<
     string,
     { name: string; type: string; isUnique: boolean; columns: string[] }
   >();
 
-  for (const row of indexesResult.recordset) {
+  for (const row of indexesRecordset) {
     if (!indexes.has(row.name)) {
       indexes.set(row.name, {
         name: row.name,
@@ -283,7 +297,7 @@ export async function describeDatabaseObject(
     createdAt: objectRow.createdAt,
     modifiedAt: objectRow.modifiedAt,
     definition: objectRow.definition,
-    columns: columnsResult.recordset,
+    columns: columnsRecordset,
     indexes: [...indexes.values()],
   };
 }

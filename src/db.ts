@@ -81,6 +81,26 @@ function createSqlConfigForDatabase(databaseName: string): sql.config {
   } as sql.config;
 }
 
+async function resolveConfiguredDatabase(
+  databaseName?: string
+): Promise<{ databaseName: string; error?: string }> {
+  const resolved = resolveDatabaseName(databaseName);
+  if (!resolved) {
+    const allowed = getAllowedDatabases();
+    const configurationHint =
+      allowed.length > 0
+        ? `Allowed: ${allowed.join(", ")}.`
+        : "Set DATABASE_NAME or DATABASES to configure database access.";
+
+    return {
+      databaseName: "",
+      error: `Invalid or disallowed database. ${configurationHint} Use the databaseName parameter to target a specific configured database.`,
+    };
+  }
+
+  return { databaseName: resolved };
+}
+
 /**
  * Ensures a connection pool exists for the given database.
  */
@@ -116,20 +136,39 @@ export async function ensureSqlConnection(
 export async function getSqlRequest(
   databaseName?: string
 ): Promise<{ request: sql.Request; error?: string }> {
-  const resolved = resolveDatabaseName(databaseName);
-  if (!resolved) {
-    const allowed = getAllowedDatabases();
-    const configurationHint =
-      allowed.length > 0
-        ? `Allowed: ${allowed.join(", ")}.`
-        : "Set DATABASE_NAME or DATABASES to configure database access.";
-
+  const resolved = await resolveConfiguredDatabase(databaseName);
+  if (resolved.error) {
     return {
       request: null as unknown as sql.Request,
-      error: `Invalid or disallowed database. ${configurationHint} Use the databaseName parameter to target a specific configured database.`,
+      error: resolved.error,
     };
   }
 
-  const pool = await ensureSqlConnection(resolved);
+  const pool = await ensureSqlConnection(resolved.databaseName);
   return { request: pool.request() };
+}
+
+export async function getDedicatedSqlPool(
+  databaseName?: string
+): Promise<{ pool: sql.ConnectionPool; error?: string }> {
+  const resolved = await resolveConfiguredDatabase(databaseName);
+  if (resolved.error) {
+    return {
+      pool: null as unknown as sql.ConnectionPool,
+      error: resolved.error,
+    };
+  }
+
+  const config = {
+    ...createSqlConfigForDatabase(resolved.databaseName),
+    pool: {
+      max: 1,
+      min: 0,
+      idleTimeoutMillis: 30000,
+    },
+  } as sql.config;
+
+  const pool = new sql.ConnectionPool(config);
+  await pool.connect();
+  return { pool };
 }

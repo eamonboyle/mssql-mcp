@@ -1,7 +1,20 @@
-const SQL_IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+function containsControlCharacters(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.charCodeAt(0);
+    if (codePoint < 32 || codePoint === 127) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 export function isSafeSqlIdentifier(value: string): boolean {
-  return SQL_IDENTIFIER_PATTERN.test(value);
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    !containsControlCharacters(value)
+  );
 }
 
 export function assertSafeSqlIdentifier(
@@ -15,7 +28,7 @@ export function assertSafeSqlIdentifier(
 
 export function quoteIdentifier(value: string): string {
   assertSafeSqlIdentifier(value);
-  return `[${value}]`;
+  return `[${value.replace(/\]/g, "]]")}]`;
 }
 
 export function buildQualifiedName(

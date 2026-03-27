@@ -14,6 +14,11 @@ interface ResourceTemplateDefinition {
   mimeType: string;
 }
 
+interface CacheEntry<T> {
+  expiresAt: number;
+  value: T;
+}
+
 export interface ResourceRegistryContext {
   serverName: string;
   serverVersion: string;
@@ -39,6 +44,7 @@ const resourceTemplates: ResourceTemplateDefinition[] = [
     mimeType: "application/json",
   },
 ];
+const RESOURCE_LIST_TTL_MS = 30_000;
 
 function buildResourceText(payload: unknown) {
   return JSON.stringify(payload, null, 2);
@@ -57,9 +63,32 @@ function parseResourceUri(uri: string) {
   };
 }
 
+function createListingCache(ttlMs: number) {
+  const cache = new Map<string, CacheEntry<unknown>>();
+
+  return async function getCachedValue<T>(
+    key: string,
+    loader: () => Promise<T>
+  ): Promise<T> {
+    const now = Date.now();
+    const cached = cache.get(key);
+    if (cached && cached.expiresAt > now) {
+      return cached.value as T;
+    }
+
+    const value = await loader();
+    cache.set(key, {
+      value,
+      expiresAt: now + ttlMs,
+    });
+    return value;
+  };
+}
+
 async function readResourcePayload(
   uri: string,
-  context: ResourceRegistryContext
+  context: ResourceRegistryContext,
+  getCachedValue: <T>(key: string, loader: () => Promise<T>) => Promise<T>
 ) {
   const parsed = parseResourceUri(uri);
 
@@ -91,14 +120,18 @@ async function readResourcePayload(
     if (resourceName === "tables") {
       return {
         databaseName,
-        tables: await listDatabaseTables(databaseName),
+        tables: await getCachedValue(`tables:${databaseName}`, () =>
+          listDatabaseTables(databaseName)
+        ),
       };
     }
 
     if (resourceName === "objects") {
       return {
         databaseName,
-        objects: await listDatabaseObjects(databaseName),
+        objects: await getCachedValue(`objects:${databaseName}`, () =>
+          listDatabaseObjects(databaseName)
+        ),
       };
     }
   }
@@ -131,13 +164,18 @@ async function readResourcePayload(
   throw new Error(`Unknown resource URI: ${uri}`);
 }
 
-function buildReadHandler(context: ResourceRegistryContext) {
+function buildReadHandler(
+  context: ResourceRegistryContext,
+  getCachedValue: <T>(key: string, loader: () => Promise<T>) => Promise<T>
+) {
   return async (uri: URL) => ({
     contents: [
       {
         uri: uri.href,
         mimeType: "application/json",
-        text: buildResourceText(await readResourcePayload(uri.href, context)),
+        text: buildResourceText(
+          await readResourcePayload(uri.href, context, getCachedValue)
+        ),
       },
     ],
   });
@@ -147,7 +185,8 @@ export function registerResources(
   server: McpServer,
   context: ResourceRegistryContext
 ): void {
-  const readHandler = buildReadHandler(context);
+  const getCachedValue = createListingCache(RESOURCE_LIST_TTL_MS);
+  const readHandler = buildReadHandler(context, getCachedValue);
 
   server.registerResource(
     "server_config",
@@ -203,7 +242,9 @@ export function registerResources(
         resources: (
           await Promise.all(
             context.allowedDatabases.map(async (databaseName) => {
-              const tables = await listDatabaseTables(databaseName);
+              const tables = await getCachedValue(`tables:${databaseName}`, () =>
+                listDatabaseTables(databaseName)
+              );
               return tables.map((table) => ({
                 uri: `mssql://table/${encodeURIComponent(databaseName)}/${encodeURIComponent(table.schemaName)}/${encodeURIComponent(table.tableName)}`,
                 name: `${databaseName}.${table.schemaName}.${table.tableName}`,
@@ -228,7 +269,10 @@ export function registerResources(
         resources: (
           await Promise.all(
             context.allowedDatabases.map(async (databaseName) => {
-              const objects = await listDatabaseObjects(databaseName);
+              const objects = await getCachedValue(
+                `objects:${databaseName}`,
+                () => listDatabaseObjects(databaseName)
+              );
               return objects.map((object) => ({
                 uri: `mssql://object/${encodeURIComponent(databaseName)}/${encodeURIComponent(object.schemaName)}/${encodeURIComponent(object.name)}`,
                 name: `${databaseName}.${object.schemaName}.${object.name}`,

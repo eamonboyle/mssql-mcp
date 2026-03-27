@@ -13,6 +13,7 @@ import { ListTableTool } from "./tools/ListTableTool.js";
 import { ReadDataTool } from "./tools/ReadDataTool.js";
 import { SearchDataTool } from "./tools/SearchDataTool.js";
 import { UpdateDataTool } from "./tools/UpdateDataTool.js";
+import { SQL_FILTER_OPERATORS } from "./writeSafety.js";
 
 export interface RunnableTool {
   name: string;
@@ -28,6 +29,46 @@ export interface ToolDefinition {
 }
 
 const recordSchema = z.record(z.string(), z.unknown());
+const filterSchema = z
+  .object({
+    column: z.string().describe("Column name to filter on."),
+    operator: z
+      .enum(SQL_FILTER_OPERATORS)
+      .describe("Comparison operator for this filter."),
+    value: z
+      .unknown()
+      .optional()
+      .describe("Single comparison value. Required for most operators."),
+    values: z
+      .array(z.unknown())
+      .optional()
+      .describe("Multiple comparison values. Required for IN filters."),
+  })
+  .strict()
+  .superRefine((filter, ctx) => {
+    if (filter.operator === "IN") {
+      if (!Array.isArray(filter.values) || filter.values.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["values"],
+          message: "IN filters require a non-empty values array.",
+        });
+      }
+      return;
+    }
+
+    if (filter.operator === "IS NULL" || filter.operator === "IS NOT NULL") {
+      return;
+    }
+
+    if (!("value" in filter)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["value"],
+        message: `${filter.operator} filters require a value.`,
+      });
+    }
+  });
 
 const listTableTool = new ListTableTool();
 const describeTableTool = new DescribeTableTool();
@@ -255,7 +296,7 @@ export const toolDefinitions: ToolDefinition[] = [
             "Name of the database to use (optional). Omit to use the default configured database."
           ),
       })
-      .passthrough(),
+      .strict(),
   },
   {
     tool: updateDataTool,
@@ -269,10 +310,10 @@ export const toolDefinitions: ToolDefinition[] = [
         updates: recordSchema.describe(
           "Key-value pairs of columns to update. Example: { status: 'active' }"
         ),
-        whereClause: z
-          .string()
+        filters: z
+          .array(filterSchema)
           .describe(
-            "WHERE clause to identify which records to update. Example: status = 'pending'"
+            "Structured filters combined with AND to identify which rows to update."
           ),
         databaseName: z
           .string()
@@ -281,7 +322,7 @@ export const toolDefinitions: ToolDefinition[] = [
             "Name of the database to use (optional). Omit to use the default configured database."
           ),
       })
-      .passthrough(),
+      .strict(),
   },
   {
     tool: deleteDataTool,
@@ -298,10 +339,10 @@ export const toolDefinitions: ToolDefinition[] = [
           .string()
           .optional()
           .describe("Schema containing the table (optional)."),
-        whereClause: z
-          .string()
+        filters: z
+          .array(filterSchema)
           .describe(
-            "WHERE clause used to target rows for deletion. Example: status = 'inactive'"
+            "Structured filters combined with AND to target rows for deletion."
           ),
         databaseName: z
           .string()
@@ -310,7 +351,7 @@ export const toolDefinitions: ToolDefinition[] = [
             "Name of the database to use (optional). Omit to use the default configured database."
           ),
       })
-      .passthrough(),
+      .strict(),
   },
   {
     tool: createTableTool,
@@ -320,6 +361,10 @@ export const toolDefinitions: ToolDefinition[] = [
     },
     inputSchema: z
       .object({
+        schemaName: z
+          .string()
+          .optional()
+          .describe("Name of the schema for the new table (optional)."),
         tableName: z.string().describe("Name of the table to create"),
         columns: z
           .array(
@@ -329,13 +374,41 @@ export const toolDefinitions: ToolDefinition[] = [
                 type: z
                   .string()
                   .describe(
-                    "SQL type and constraints (e.g., 'INT PRIMARY KEY', 'NVARCHAR(255) NOT NULL')"
+                    "SQL type declaration only (e.g., 'INT', 'NVARCHAR(255)', 'DECIMAL(10, 2)')."
                   ),
+                nullable: z
+                  .boolean()
+                  .optional()
+                  .describe("Whether the column allows NULL values."),
+                isPrimaryKey: z
+                  .boolean()
+                  .optional()
+                  .describe("Whether the column is part of the primary key."),
+                isUnique: z
+                  .boolean()
+                  .optional()
+                  .describe("Whether the column has a UNIQUE constraint."),
+                isIdentity: z
+                  .boolean()
+                  .optional()
+                  .describe("Whether the column is an identity column."),
+                identitySeed: z
+                  .number()
+                  .int()
+                  .nonnegative()
+                  .optional()
+                  .describe("Identity seed value when isIdentity is true."),
+                identityIncrement: z
+                  .number()
+                  .int()
+                  .nonnegative()
+                  .optional()
+                  .describe("Identity increment value when isIdentity is true."),
               })
-              .passthrough()
+              .strict()
           )
           .describe(
-            "Array of column definitions (e.g., [{ name: 'id', type: 'INT PRIMARY KEY' }])"
+            "Array of validated column definitions."
           ),
         databaseName: z
           .string()
@@ -344,7 +417,7 @@ export const toolDefinitions: ToolDefinition[] = [
             "Name of the database to use (optional). Omit to use the default configured database."
           ),
       })
-      .passthrough(),
+      .strict(),
   },
   {
     tool: createIndexTool,
@@ -378,7 +451,7 @@ export const toolDefinitions: ToolDefinition[] = [
             "Name of the database to use (optional). Omit to use the default configured database."
           ),
       })
-      .passthrough(),
+      .strict(),
   },
   {
     tool: dropTableTool,
@@ -396,7 +469,7 @@ export const toolDefinitions: ToolDefinition[] = [
             "Name of the database to use (optional). Omit to use the default configured database."
           ),
       })
-      .passthrough(),
+      .strict(),
   },
 ];
 

@@ -10,14 +10,18 @@ describe("sql helpers", () => {
   it("quotes safe identifiers", () => {
     expect(quoteIdentifier("Users")).toBe("[Users]");
     expect(buildQualifiedName("Users", "dbo")).toBe("[dbo].[Users]");
+    expect(quoteIdentifier("Order Details")).toBe("[Order Details]");
+    expect(quoteIdentifier("Users]Archive")).toBe("[Users]]Archive]");
   });
 
-  it("rejects unsafe identifiers", () => {
-    expect(() => quoteIdentifier("Users; DROP TABLE x")).toThrow(
-      "Invalid identifier."
-    );
-    expect(() => buildQualifiedName("Users", "dbo-admin")).toThrow(
+  it("rejects empty or control-character identifiers", () => {
+    expect(() => quoteIdentifier("")).toThrow("Invalid identifier.");
+    expect(() => buildQualifiedName("", "dbo")).toThrow("Invalid object name.");
+    expect(() => buildQualifiedName("Users", "dbo\u0000")).toThrow(
       "Invalid schema name."
+    );
+    expect(() => quoteIdentifier("Users\u0000Archive")).toThrow(
+      "Invalid identifier."
     );
   });
 

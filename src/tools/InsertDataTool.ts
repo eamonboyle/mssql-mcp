@@ -1,4 +1,5 @@
 import { getSqlRequest } from "../db.js";
+import { buildQualifiedName, quoteIdentifier } from "../sql.js";
 
 type InsertRow = Record<string, unknown>;
 
@@ -74,6 +75,12 @@ IMPORTANT RULES:
       }
       // Validate that all records have the same columns
       const firstRecordColumns = Object.keys(records[0]).sort();
+      if (firstRecordColumns.length === 0) {
+        return {
+          success: false,
+          message: "At least one column is required for insertion",
+        };
+      }
       for (let i = 1; i < records.length; i++) {
         const currentColumns = Object.keys(records[i]).sort();
         if (
@@ -85,7 +92,10 @@ IMPORTANT RULES:
           };
         }
       }
-      const columns = firstRecordColumns.join(", ");
+      const qualifiedTableName = buildQualifiedName(tableName);
+      const columns = firstRecordColumns
+        .map((columnName) => quoteIdentifier(columnName))
+        .join(", ");
       if (isMultipleRecords) {
         // Multiple records insert using VALUES clause - works for 1 or more records
         const valueClauses: string[] = [];
@@ -99,7 +109,7 @@ IMPORTANT RULES:
             request.input(`value${recordIndex}_${columnIndex}`, record[column]);
           });
         });
-        const query = `INSERT INTO ${tableName} (${columns}) VALUES ${valueClauses.join(", ")}`;
+        const query = `INSERT INTO ${qualifiedTableName} (${columns}) VALUES ${valueClauses.join(", ")}`;
         await request.query(query);
         return {
           success: true,
@@ -114,7 +124,7 @@ IMPORTANT RULES:
         firstRecordColumns.forEach((column, index) => {
           request.input(`value${index}`, records[0][column]);
         });
-        const query = `INSERT INTO ${tableName} (${columns}) VALUES (${values})`;
+        const query = `INSERT INTO ${qualifiedTableName} (${columns}) VALUES (${values})`;
         await request.query(query);
         return {
           success: true,

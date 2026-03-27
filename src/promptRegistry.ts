@@ -72,6 +72,41 @@ function buildPromptMessage(text: string) {
   };
 }
 
+const promptMessageBuilders = {
+  explore_schema: (args: Record<string, string | undefined>) => ({
+    description: "Inspect the schema before answering or generating SQL.",
+    messages: [
+      buildPromptMessage(
+        `Inspect the SQL Server schema before answering the request.\nGoal: ${args.goal ?? "Understand the database shape"}\nDatabase: ${args.databaseName ?? "default configured database"}\nUse list_objects or list_table first, then describe_object or describe_table before writing SQL.`
+      ),
+    ],
+  }),
+  draft_safe_select: (args: Record<string, string | undefined>) => ({
+    description:
+      "Draft a read-only SQL workflow that inspects schema before querying data.",
+    messages: [
+      buildPromptMessage(
+        `Answer this database question safely: ${args.question ?? "No question provided"}\nDatabase: ${args.databaseName ?? "default configured database"}\nInspect relevant schema first, then use read_data or search_data. Keep the final SQL read-only and explain assumptions.`
+      ),
+    ],
+  }),
+  review_write_operation: (args: Record<string, string | undefined>) => ({
+    description:
+      "Review a proposed change and identify safety checks before running it.",
+    messages: [
+      buildPromptMessage(
+        `Review this proposed change before execution: ${args.operation ?? "No operation provided"}\nDatabase: ${args.databaseName ?? "default configured database"}\nConfirm the target objects, verify WHERE clauses where applicable, and suggest preview queries before any write tool is used.`
+      ),
+    ],
+  }),
+} satisfies Record<
+  (typeof promptDefinitions)[number]["name"],
+  (args: Record<string, string | undefined>) => {
+    description: string;
+    messages: ReturnType<typeof buildPromptMessage>[];
+  }
+>;
+
 export function registerPrompts(server: McpServer): void {
   for (const prompt of promptDefinitions) {
     const argsShape = Object.fromEntries(
@@ -90,41 +125,10 @@ export function registerPrompts(server: McpServer): void {
         description: prompt.description,
         argsSchema: argsShape,
       },
-      (args) => {
-        switch (prompt.name) {
-          case "explore_schema":
-            return {
-              description: "Inspect the schema before answering or generating SQL.",
-              messages: [
-                buildPromptMessage(
-                  `Inspect the SQL Server schema before answering the request.\nGoal: ${args.goal ?? "Understand the database shape"}\nDatabase: ${args.databaseName ?? "default configured database"}\nUse list_objects or list_table first, then describe_object or describe_table before writing SQL.`
-                ),
-              ],
-            };
-          case "draft_safe_select":
-            return {
-              description:
-                "Draft a read-only SQL workflow that inspects schema before querying data.",
-              messages: [
-                buildPromptMessage(
-                  `Answer this database question safely: ${args.question ?? "No question provided"}\nDatabase: ${args.databaseName ?? "default configured database"}\nInspect relevant schema first, then use read_data or search_data. Keep the final SQL read-only and explain assumptions.`
-                ),
-              ],
-            };
-          case "review_write_operation":
-            return {
-              description:
-                "Review a proposed change and identify safety checks before running it.",
-              messages: [
-                buildPromptMessage(
-                  `Review this proposed change before execution: ${args.operation ?? "No operation provided"}\nDatabase: ${args.databaseName ?? "default configured database"}\nConfirm the target objects, verify WHERE clauses where applicable, and suggest preview queries before any write tool is used.`
-                ),
-              ],
-            };
-          default:
-            throw new Error(`Unknown prompt: ${prompt.name}`);
-        }
-      }
+      (args) =>
+        promptMessageBuilders[prompt.name as keyof typeof promptMessageBuilders](
+          args
+        )
     );
   }
 }

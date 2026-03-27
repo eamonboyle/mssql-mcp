@@ -1,4 +1,5 @@
 import { getSqlRequest } from "../db.js";
+import { buildQualifiedName, quoteIdentifier } from "../sql.js";
 
 interface CreateIndexParams {
   schemaName?: string;
@@ -36,9 +37,13 @@ export class CreateIndexTool {
       if (isUnique) {
         indexType = `UNIQUE ${indexType}`;
       }
-      const columnNames = columns.join(", ");
-      const tableRef = schemaName ? `${schemaName}.${tableName}` : tableName;
-      const query = `CREATE ${indexType} INDEX ${indexName} ON ${tableRef} (${columnNames})`;
+      if (!Array.isArray(columns) || columns.length === 0) {
+        throw new Error("At least one column is required to create an index.");
+      }
+
+      const columnNames = columns.map((columnName) => quoteIdentifier(columnName)).join(", ");
+      const tableRef = buildQualifiedName(tableName, schemaName);
+      const query = `CREATE ${indexType} INDEX ${quoteIdentifier(indexName)} ON ${tableRef} (${columnNames})`;
       await request.query(query);
 
       return {

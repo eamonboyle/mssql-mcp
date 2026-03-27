@@ -1,8 +1,14 @@
 import { getSqlRequest } from "../db.js";
+import { buildQualifiedName } from "../sql.js";
+import {
+  buildCreateColumnDefinition,
+  type SqlTypeDeclaration,
+} from "../writeSafety.js";
 
 interface CreateTableParams {
+  schemaName?: string;
   tableName: string;
-  columns: Array<{ name: string; type: string }>;
+  columns: Array<{ name: string } & SqlTypeDeclaration>;
   databaseName?: string;
 }
 
@@ -13,7 +19,7 @@ export class CreateTableTool {
 
   async run(params: CreateTableParams) {
     try {
-      const { tableName, columns, databaseName } = params;
+      const { schemaName, tableName, columns, databaseName } = params;
 
       const { request, error } = await getSqlRequest(databaseName);
       if (error) {
@@ -24,9 +30,9 @@ export class CreateTableTool {
         throw new Error("'columns' must be a non-empty array");
       }
       const columnDefs = columns
-        .map((col) => `[${col.name}] ${col.type}`)
+        .map((col) => buildCreateColumnDefinition(col.name, col))
         .join(", ");
-      const query = `CREATE TABLE [${tableName}] (${columnDefs})`;
+      const query = `CREATE TABLE ${buildQualifiedName(tableName, schemaName)} (${columnDefs})`;
       await request.query(query);
       return {
         success: true,

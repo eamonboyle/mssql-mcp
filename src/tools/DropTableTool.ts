@@ -1,4 +1,5 @@
 import { getSqlRequest } from "../db.js";
+import { buildQualifiedName } from "../sql.js";
 
 interface DropTableParams {
   tableName: string;
@@ -18,11 +19,7 @@ export class DropTableTool {
         return { success: false, message: error };
       }
 
-      // Basic validation to prevent SQL injection
-      if (!/^[\w\d_]+$/.test(tableName)) {
-        throw new Error("Invalid table name.");
-      }
-      const query = `DROP TABLE [${tableName}]`;
+      const query = `DROP TABLE ${buildQualifiedName(tableName)}`;
       await request.query(query);
       return {
         success: true,

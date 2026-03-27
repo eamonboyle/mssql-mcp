@@ -1,4 +1,5 @@
-import { getSqlRequest } from "../db.js";
+import sql from "mssql";
+import { getDedicatedSqlPool } from "../db.js";
 import { validateReadQuery } from "../validation.js";
 
 interface ExplainQueryParams {
@@ -36,6 +37,11 @@ export class ExplainQueryTool {
     "Returns an estimated SQL Server execution plan for a validated SELECT query without modifying data.";
 
   async run(params: ExplainQueryParams) {
+    let pool: sql.ConnectionPool | undefined;
+    let transaction: sql.Transaction | undefined;
+    let transactionStarted = false;
+    let showplanEnabled = false;
+
     try {
       const { query, databaseName } = params;
       const validation = validateReadQuery(query);
@@ -47,17 +53,21 @@ export class ExplainQueryTool {
         };
       }
 
-      const { request, error } = await getSqlRequest(databaseName);
+      const { pool: dedicatedPool, error } = await getDedicatedSqlPool(databaseName);
       if (error) {
         return { success: false, message: error };
       }
 
-      const planBatch = `SET SHOWPLAN_XML ON; ${query}; SET SHOWPLAN_XML OFF;`;
-      const batchResult =
-        typeof request.batch === "function"
-          ? await request.batch(planBatch)
-          : await request.query(planBatch);
-      const planXml = extractPlanXml(batchResult.recordsets);
+      pool = dedicatedPool;
+      transaction = new sql.Transaction(pool);
+      await transaction.begin();
+      transactionStarted = true;
+
+      await new sql.Request(transaction).query("SET SHOWPLAN_XML ON");
+      showplanEnabled = true;
+
+      const planResult = await new sql.Request(transaction).query(query);
+      const planXml = extractPlanXml(planResult.recordsets);
 
       return {
         success: true,
@@ -65,7 +75,7 @@ export class ExplainQueryTool {
           ? "Estimated execution plan generated successfully."
           : "Execution plan request completed, but no XML plan was returned.",
         planXml,
-        recordsets: batchResult.recordsets,
+        recordsets: planResult.recordsets,
       };
     } catch (error) {
       console.error("Error explaining query:", error);
@@ -73,6 +83,30 @@ export class ExplainQueryTool {
         success: false,
         message: `Failed to explain query: ${error}`,
       };
+    } finally {
+      if (transaction && transactionStarted && showplanEnabled) {
+        try {
+          await new sql.Request(transaction).query("SET SHOWPLAN_XML OFF");
+        } catch (cleanupError) {
+          console.error("Failed to disable SHOWPLAN_XML:", cleanupError);
+        }
+      }
+
+      if (transaction && transactionStarted) {
+        try {
+          await transaction.rollback();
+        } catch {
+          // Ignore rollback errors during cleanup.
+        }
+      }
+
+      if (pool) {
+        try {
+          await pool.close();
+        } catch {
+          // Ignore pool close errors during cleanup.
+        }
+      }
     }
   }
 }
