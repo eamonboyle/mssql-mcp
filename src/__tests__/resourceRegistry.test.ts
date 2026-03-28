@@ -34,7 +34,7 @@ describe("resourceRegistry", () => {
 
     registerResources(server as never, {
       serverName: "mssql-mcp-server",
-      serverVersion: "1.2.0",
+      serverVersion: "1.3.0",
       isReadOnly: false,
       allowedDatabases: ["AppDb"],
       toolNames: [],

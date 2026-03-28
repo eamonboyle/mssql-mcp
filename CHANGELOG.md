@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-28
+
+### Added
+
+- MCP tools: `list_databases`, `list_foreign_keys`, `describe_relationships`, `analyze_table`, `preview_update`, and `preview_delete`.
+- Structured tool results: versioned JSON payloads (`version: 1`) with shared Zod `outputSchema`, normalization helpers, and `toToolStructuredContent` for consistent client parsing.
+- Write-preview workflow: `update_data` and `delete_data` integrate with preview tools and server-side result storage; optional enforcement via `REQUIRE_WRITE_PREVIEW` (default `true`).
+- Row cap for matching writes: `MAX_WRITE_ROWS` rejects updates and deletes whose filter matches more rows than allowed.
+- DDL gating: `ENABLE_DDL` (default `false`) must be enabled for `create_table`, `create_index`, and `drop_table`.
+- MCP resource template `object_dependencies` for object dependency metadata.
+- In-memory `ServerState` for caching explain-plan and preview-related payloads across tool calls.
+- Tests covering analyze-table behavior, config parsing, MCP result shapes, resources, and tool registration.
+
+### Changed
+
+- Server instructions emphasize `analyze_table`, `describe_relationships`, and running `preview_update` / `preview_delete` before destructive work.
+- Tool outcomes are text- and JSON-oriented; experimental MCP Apps-style HTML output was removed in favor of portable structured content.
+- Write and DDL tools use clearer confirmation messaging aligned with previews and DDL policy.
+- Schema and resource listing improvements (foreign keys, relationships, dependencies, database summary data).
+
 ## [1.2.0] - 2026-03-27
 
 ### Added
