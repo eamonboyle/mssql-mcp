@@ -1,5 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
 import { z } from "zod";
+import { getAllowedDatabases } from "./db.js";
 
 export interface PromptDefinition {
   name: string;
@@ -72,6 +74,14 @@ function buildPromptMessage(text: string) {
   };
 }
 
+const databaseNameArgumentSchema = completable(
+  z.string().describe("Configured database to inspect first."),
+  async (value) =>
+    getAllowedDatabases().filter((database) =>
+      database.toLowerCase().startsWith(String(value ?? "").toLowerCase())
+    )
+);
+
 export interface RegisterPromptsOptions {
   isReadOnly: boolean;
 }
@@ -136,7 +146,9 @@ export function registerPrompts(
         argument.name,
         argument.required
           ? z.string().describe(argument.description)
-          : z.string().describe(argument.description).optional(),
+          : argument.name === "databaseName"
+            ? databaseNameArgumentSchema.optional()
+            : z.string().describe(argument.description).optional(),
       ])
     );
 

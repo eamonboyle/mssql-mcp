@@ -39,7 +39,7 @@ vi.mock("../db.js", () => ({
   }),
 }));
 
-import { describeDatabaseObject } from "../schema.js";
+import { describeDatabaseObject, listForeignKeys } from "../schema.js";
 
 describe("describeDatabaseObject", () => {
   beforeEach(() => {
@@ -145,5 +145,22 @@ describe("describeDatabaseObject", () => {
     });
     expect(schemaMockState.getSqlRequestCalls).toBe(1);
     expect(schemaMockState.queryCalls).toHaveLength(2);
+  });
+});
+
+describe("listForeignKeys", () => {
+  beforeEach(() => {
+    schemaMockState.getSqlRequestCalls = 0;
+    schemaMockState.inputCalls.length = 0;
+    schemaMockState.queryCalls.length = 0;
+    schemaMockState.queryResults.length = 0;
+  });
+
+  it("filters by parent or referenced schema when schemaName is set", async () => {
+    schemaMockState.queryResults.push({ recordset: [] });
+    await listForeignKeys("AppDb", "sales");
+    expect(schemaMockState.queryCalls[0]).toContain(
+      "(ps.name = @schemaName OR rs.name = @schemaName)"
+    );
   });
 });

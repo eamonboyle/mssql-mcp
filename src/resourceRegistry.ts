@@ -1,11 +1,15 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
+  describeObjectDependencies,
   describeDatabaseObject,
   describeTableSchema,
+  getDatabaseSchemaSummary,
+  listForeignKeys,
   listDatabaseObjects,
   listDatabaseTables,
 } from "./schema.js";
 import { promptDefinitions } from "./promptRegistry.js";
+import { ServerState } from "./serverState.js";
 
 interface ResourceTemplateDefinition {
   name: string;
@@ -27,6 +31,7 @@ export interface ResourceRegistryContext {
   toolNames: string[];
   maxRows: number;
   queryTimeoutMs: number;
+  state: ServerState;
 }
 
 const resourceTemplates: ResourceTemplateDefinition[] = [
@@ -41,6 +46,13 @@ const resourceTemplates: ResourceTemplateDefinition[] = [
     uriTemplate: "mssql://object/{databaseName}/{schemaName}/{objectName}",
     description:
       "Definition and metadata for a single table, view, procedure, function, or trigger.",
+    mimeType: "application/json",
+  },
+  {
+    name: "object_dependencies",
+    uriTemplate:
+      "mssql://database/{databaseName}/object/{schemaName}/{objectName}/dependencies",
+    description: "Dependencies for a single object.",
     mimeType: "application/json",
   },
 ];
@@ -134,6 +146,24 @@ async function readResourcePayload(
         ),
       };
     }
+
+    if (resourceName === "schema-summary") {
+      return {
+        databaseName,
+        summary: await getCachedValue(`schema-summary:${databaseName}`, () =>
+          getDatabaseSchemaSummary(databaseName)
+        ),
+      };
+    }
+
+    if (resourceName === "foreign-keys") {
+      return {
+        databaseName,
+        foreignKeys: await getCachedValue(`foreign-keys:${databaseName}`, () =>
+          listForeignKeys(databaseName)
+        ),
+      };
+    }
   }
 
   if (parsed.resourceType === "table") {
@@ -161,6 +191,44 @@ async function readResourcePayload(
     return object;
   }
 
+  if (parsed.resourceType === "query-plan") {
+    const [planId] = parsed.segments;
+    const plan = context.state.getQueryPlan(planId);
+    if (!plan) {
+      throw new Error(`Unknown query plan resource '${planId}'.`);
+    }
+
+    return plan;
+  }
+
+  if (parsed.resourceType === "query-result") {
+    const [resultId] = parsed.segments;
+    const result = context.state.getQueryResult(resultId);
+    if (!result) {
+      throw new Error(`Unknown query result resource '${resultId}'.`);
+    }
+
+    return result;
+  }
+
+  if (
+    parsed.resourceType === "database" &&
+    parsed.segments[1] === "object" &&
+    parsed.segments[4] === "dependencies"
+  ) {
+    const [databaseName, _objectKeyword, schemaName, objectName] = parsed.segments;
+    return {
+      databaseName,
+      schemaName,
+      objectName,
+      dependencies: await describeObjectDependencies(
+        objectName,
+        databaseName,
+        schemaName
+      ),
+    };
+  }
+
   throw new Error(`Unknown resource URI: ${uri}`);
 }
 
@@ -168,17 +236,19 @@ function buildReadHandler(
   context: ResourceRegistryContext,
   getCachedValue: <T>(key: string, loader: () => Promise<T>) => Promise<T>
 ) {
-  return async (uri: URL) => ({
-    contents: [
-      {
-        uri: uri.href,
-        mimeType: "application/json",
-        text: buildResourceText(
-          await readResourcePayload(uri.href, context, getCachedValue)
-        ),
-      },
-    ],
-  });
+  return async (uri: URL) => {
+    const payload = await readResourcePayload(uri.href, context, getCachedValue);
+
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: buildResourceText(payload),
+        },
+      ],
+    };
+  };
 }
 
 export function registerResources(
@@ -233,6 +303,28 @@ export function registerResources(
       },
       readHandler
     );
+
+    server.registerResource(
+      `${databaseName}_schema_summary`,
+      `mssql://database/${encodeURIComponent(databaseName)}/schema-summary`,
+      {
+        title: `${databaseName} Schema Summary`,
+        description: `Schema-level summary for database ${databaseName}.`,
+        mimeType: "application/json",
+      },
+      readHandler
+    );
+
+    server.registerResource(
+      `${databaseName}_foreign_keys`,
+      `mssql://database/${encodeURIComponent(databaseName)}/foreign-keys`,
+      {
+        title: `${databaseName} Foreign Keys`,
+        description: `Foreign key relationships for database ${databaseName}.`,
+        mimeType: "application/json",
+      },
+      readHandler
+    );
   }
 
   server.registerResource(
@@ -253,6 +345,41 @@ export function registerResources(
           )
         ).flat(),
       }),
+      complete: {
+        databaseName: (value) =>
+          context.allowedDatabases.filter((databaseName) =>
+            databaseName
+              .toLowerCase()
+              .startsWith(String(value ?? "").toLowerCase())
+          ),
+        schemaName: async (_value, variables) => {
+          const databaseName = variables?.arguments?.databaseName;
+          if (!databaseName) {
+            return [];
+          }
+          const tables = await getCachedValue(`tables:${databaseName}`, () =>
+            listDatabaseTables(databaseName)
+          );
+          return [...new Set(tables.map((table) => table.schemaName))];
+        },
+        tableName: async (value, variables) => {
+          const databaseName = variables?.arguments?.databaseName;
+          const schemaName = variables?.arguments?.schemaName;
+          if (!databaseName) {
+            return [];
+          }
+          const tables = await getCachedValue(`tables:${databaseName}`, () =>
+            listDatabaseTables(databaseName, schemaName)
+          );
+          return tables
+            .map((table) => table.tableName)
+            .filter((tableName) =>
+              tableName
+                .toLowerCase()
+                .startsWith(String(value ?? "").toLowerCase())
+            );
+        },
+      },
     }),
     {
       title: "Table Schema",
@@ -281,6 +408,39 @@ export function registerResources(
           )
         ).flat(),
       }),
+      complete: {
+        databaseName: (value) =>
+          context.allowedDatabases.filter((databaseName) =>
+            databaseName
+              .toLowerCase()
+              .startsWith(String(value ?? "").toLowerCase())
+          ),
+        schemaName: async (_value, variables) => {
+          const databaseName = variables?.arguments?.databaseName;
+          if (!databaseName) {
+            return [];
+          }
+          const objects = await getCachedValue(`objects:${databaseName}`, () =>
+            listDatabaseObjects(databaseName)
+          );
+          return [...new Set(objects.map((object) => object.schemaName))];
+        },
+        objectName: async (value, variables) => {
+          const databaseName = variables?.arguments?.databaseName;
+          const schemaName = variables?.arguments?.schemaName;
+          if (!databaseName) {
+            return [];
+          }
+          const objects = await getCachedValue(`objects:${databaseName}`, () =>
+            listDatabaseObjects(databaseName, undefined, schemaName)
+          );
+          return objects
+            .map((object) => object.name)
+            .filter((name) =>
+              name.toLowerCase().startsWith(String(value ?? "").toLowerCase())
+            );
+        },
+      },
     }),
     {
       title: "Object Definition",
@@ -289,4 +449,54 @@ export function registerResources(
     },
     readHandler
   );
+
+  server.registerResource(
+    "object_dependencies",
+    new ResourceTemplate(resourceTemplates[2].uriTemplate, {
+      list: undefined,
+    }),
+    {
+      title: "Object Dependencies",
+      description: resourceTemplates[2].description,
+      mimeType: resourceTemplates[2].mimeType,
+    },
+    readHandler
+  );
+
+  server.registerResource(
+    "query_plan_resource",
+    new ResourceTemplate("mssql://query-plan/{planId}", {
+      list: async () => ({
+        resources: context.state.listQueryPlans().map((plan) => ({
+          uri: `mssql://query-plan/${plan.id}`,
+          name: plan.id,
+        })),
+      }),
+    }),
+    {
+      title: "Query Plans",
+      description: "Stored query plan results generated by explain_query.",
+      mimeType: "application/json",
+    },
+    readHandler
+  );
+
+  server.registerResource(
+    "query_result_resource",
+    new ResourceTemplate("mssql://query-result/{resultId}", {
+      list: async () => ({
+        resources: context.state.listQueryResults().map((result) => ({
+          uri: `mssql://query-result/${result.id}`,
+          name: result.label,
+        })),
+      }),
+    }),
+    {
+      title: "Query Results",
+      description: "Stored large query results generated by read/search tools.",
+      mimeType: "application/json",
+    },
+    readHandler
+  );
+
 }

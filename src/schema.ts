@@ -1,5 +1,9 @@
 import sql from "mssql";
-import { getSqlRequest } from "./db.js";
+import {
+  getAllowedDatabases,
+  getDefaultDatabaseName,
+  getSqlRequest,
+} from "./db.js";
 import { getFriendlyObjectType, getObjectTypeCodes } from "./sql.js";
 
 export interface DatabaseObjectSummary {
@@ -299,5 +303,223 @@ export async function describeDatabaseObject(
     definition: objectRow.definition,
     columns: columnsRecordset,
     indexes: [...indexes.values()],
+  };
+}
+
+export function listConfiguredDatabases() {
+  const defaultName = getDefaultDatabaseName();
+  return getAllowedDatabases().map((name) => ({
+    name,
+    isDefault: defaultName === name,
+  }));
+}
+
+export async function getDatabaseSchemaSummary(databaseName?: string) {
+  const { request, error } = await getSqlRequest(databaseName);
+  if (error) {
+    throw new Error(error);
+  }
+
+  const result = await request.query(`
+    SELECT
+      CASE
+        WHEN o.type = 'U' THEN 'table'
+        WHEN o.type = 'V' THEN 'view'
+        WHEN o.type = 'P' THEN 'procedure'
+        WHEN o.type IN ('FN', 'IF', 'TF', 'FS', 'FT') THEN 'function'
+        WHEN o.type = 'TR' THEN 'trigger'
+        ELSE 'other'
+      END AS objectType,
+      COUNT(*) AS objectCount
+    FROM sys.objects o
+    WHERE o.is_ms_shipped = 0
+    GROUP BY CASE
+      WHEN o.type = 'U' THEN 'table'
+      WHEN o.type = 'V' THEN 'view'
+      WHEN o.type = 'P' THEN 'procedure'
+      WHEN o.type IN ('FN', 'IF', 'TF', 'FS', 'FT') THEN 'function'
+      WHEN o.type = 'TR' THEN 'trigger'
+      ELSE 'other'
+    END;
+
+    SELECT
+      s.name AS schemaName,
+      COUNT(*) AS objectCount
+    FROM sys.objects o
+    INNER JOIN sys.schemas s ON s.schema_id = o.schema_id
+    WHERE o.is_ms_shipped = 0
+    GROUP BY s.name
+    ORDER BY objectCount DESC, s.name;
+  `);
+
+  const recordsets = Array.isArray(result.recordsets) ? result.recordsets : [];
+  return {
+    objectCounts: recordsets[0] ?? [],
+    schemaCounts: recordsets[1] ?? [],
+  };
+}
+
+export async function listForeignKeys(databaseName?: string, schemaName?: string) {
+  const { request, error } = await getSqlRequest(databaseName);
+  if (error) {
+    throw new Error(error);
+  }
+
+  if (schemaName) {
+    request.input("schemaName", sql.NVarChar, schemaName);
+  }
+
+  const schemaFilter = schemaName
+    ? "AND (ps.name = @schemaName OR rs.name = @schemaName)"
+    : "";
+  const result = await request.query(`
+    SELECT
+      fk.name AS foreignKeyName,
+      ps.name AS parentSchemaName,
+      pt.name AS parentTableName,
+      pc.name AS parentColumnName,
+      rs.name AS referencedSchemaName,
+      rt.name AS referencedTableName,
+      rc.name AS referencedColumnName,
+      fk.delete_referential_action_desc AS onDelete,
+      fk.update_referential_action_desc AS onUpdate
+    FROM sys.foreign_keys fk
+    INNER JOIN sys.foreign_key_columns fkc
+      ON fkc.constraint_object_id = fk.object_id
+    INNER JOIN sys.tables pt
+      ON pt.object_id = fk.parent_object_id
+    INNER JOIN sys.schemas ps
+      ON ps.schema_id = pt.schema_id
+    INNER JOIN sys.columns pc
+      ON pc.object_id = pt.object_id
+      AND pc.column_id = fkc.parent_column_id
+    INNER JOIN sys.tables rt
+      ON rt.object_id = fk.referenced_object_id
+    INNER JOIN sys.schemas rs
+      ON rs.schema_id = rt.schema_id
+    INNER JOIN sys.columns rc
+      ON rc.object_id = rt.object_id
+      AND rc.column_id = fkc.referenced_column_id
+    WHERE 1 = 1
+      ${schemaFilter}
+    ORDER BY ps.name, pt.name, fk.name, fkc.constraint_column_id
+  `);
+
+  return result.recordset;
+}
+
+export async function describeRelationships(
+  tableName: string,
+  databaseName?: string,
+  schemaName?: string
+) {
+  const foreignKeys = await listForeignKeys(databaseName, schemaName);
+  return foreignKeys.filter(
+    (row) =>
+      row.parentTableName === tableName || row.referencedTableName === tableName
+  );
+}
+
+export async function describeObjectDependencies(
+  objectName: string,
+  databaseName?: string,
+  schemaName?: string
+) {
+  const { request, error } = await getSqlRequest(databaseName);
+  if (error) {
+    throw new Error(error);
+  }
+
+  request.input("objectName", sql.NVarChar, objectName);
+  if (schemaName) {
+    request.input("schemaName", sql.NVarChar, schemaName);
+  }
+
+  const schemaFilter = schemaName ? "AND s.name = @schemaName" : "";
+  const result = await request.query(`
+    SELECT
+      referencingSchema.name AS referencingSchemaName,
+      referencing.name AS referencingObjectName,
+      referencing.type_desc AS referencingType,
+      referenced.referenced_schema_name AS referencedSchemaName,
+      referenced.referenced_entity_name AS referencedEntityName
+    FROM sys.objects target
+    INNER JOIN sys.schemas s ON s.schema_id = target.schema_id
+    INNER JOIN sys.sql_expression_dependencies referenced
+      ON referenced.referenced_id = target.object_id
+    INNER JOIN sys.objects referencing
+      ON referencing.object_id = referenced.referencing_id
+    INNER JOIN sys.schemas referencingSchema
+      ON referencingSchema.schema_id = referencing.schema_id
+    WHERE target.name = @objectName
+      ${schemaFilter}
+    ORDER BY referencingSchema.name, referencing.name;
+  `);
+
+  return result.recordset;
+}
+
+export interface AnalyzeTableResult {
+  summary: Record<string, unknown> | null;
+  indexes: Array<Record<string, unknown>>;
+}
+
+export async function analyzeTable(
+  tableName: string,
+  databaseName?: string,
+  schemaName?: string
+): Promise<AnalyzeTableResult> {
+  const { request, error } = await getSqlRequest(databaseName);
+  if (error) {
+    throw new Error(error);
+  }
+
+  request.input("tableName", sql.NVarChar, tableName);
+  if (schemaName) {
+    request.input("schemaName", sql.NVarChar, schemaName);
+  }
+
+  const schemaFilter = schemaName ? "AND s.name = @schemaName" : "";
+  const result = await request.query(`
+    SELECT TOP (1)
+      s.name AS schemaName,
+      t.name AS tableName,
+      SUM(p.row_count) AS [rowCount],
+      CAST(SUM(a.total_pages) * 8.0 / 1024 AS DECIMAL(12, 2)) AS reservedMB,
+      CAST(SUM(a.used_pages) * 8.0 / 1024 AS DECIMAL(12, 2)) AS usedMB
+    FROM sys.tables t
+    INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+    INNER JOIN sys.dm_db_partition_stats p ON p.object_id = t.object_id
+    INNER JOIN sys.partitions sp ON sp.partition_id = p.partition_id
+    INNER JOIN sys.allocation_units a ON a.container_id = sp.hobt_id
+    WHERE t.name = @tableName
+      ${schemaFilter}
+    GROUP BY s.name, t.name
+    ORDER BY s.name, t.name;
+
+    SELECT
+      i.name,
+      i.type_desc AS type,
+      i.is_unique AS isUnique,
+      i.is_primary_key AS isPrimaryKey
+    FROM sys.indexes i
+    INNER JOIN sys.tables t ON t.object_id = i.object_id
+    INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+    WHERE t.name = @tableName
+      ${schemaFilter}
+      AND i.index_id > 0
+    ORDER BY i.name;
+  `);
+
+  const recordsets = Array.isArray(result.recordsets) ? result.recordsets : [];
+  const rawRows = recordsets[1];
+  const indexes =
+    rawRows !== undefined && rawRows !== null
+      ? Array.from(rawRows as Iterable<Record<string, unknown>>)
+      : [];
+
+  return {
+    summary: (recordsets[0]?.[0] as Record<string, unknown> | undefined) ?? null,
+    indexes,
   };
 }

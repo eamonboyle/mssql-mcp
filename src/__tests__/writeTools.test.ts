@@ -65,10 +65,11 @@ describe("write tools", () => {
 
     expect(result).toMatchObject({ success: true, rowsAffected: 1 });
     expect(dbMockState.queryCalls[0]).toBe(
-      "DELETE FROM [sales-data].[Order Details] WHERE [Order ID] = @delete_filter_0"
+      "SET ROWCOUNT @mcp_rowcap;\nDELETE FROM [sales-data].[Order Details] WHERE [Order ID] = @delete_filter_0\nSET ROWCOUNT 0;"
     );
     expect(dbMockState.inputCalls).toEqual([
       { name: "delete_filter_0", value: 42 },
+      { name: "mcp_rowcap", value: 100 },
     ]);
   });
 
@@ -83,13 +84,31 @@ describe("write tools", () => {
 
     expect(result).toMatchObject({ success: true, rowsAffected: 1 });
     expect(dbMockState.queryCalls[0]).toBe(
-      "UPDATE [Users] SET [display name] = @update_0 WHERE [id] IN (@update_filter_0_0, @update_filter_0_1)"
+      "SET ROWCOUNT @mcp_rowcap;\nUPDATE [Users] SET [display name] = @update_0 WHERE [id] IN (@update_filter_0_0, @update_filter_0_1)\nSET ROWCOUNT 0;"
     );
     expect(dbMockState.inputCalls).toEqual([
       { name: "update_0", value: "Ada" },
       { name: "update_filter_0_0", value: 1 },
       { name: "update_filter_0_1", value: 2 },
+      { name: "mcp_rowcap", value: 100 },
     ]);
+  });
+
+  it("qualifies update target with schema when provided", async () => {
+    const tool = new UpdateDataTool();
+
+    const result = await tool.run({
+      tableName: "Users",
+      schemaName: "auth",
+      updates: { status: "active" },
+      filters: [{ column: "id", operator: "=", value: 1 }],
+    });
+
+    expect(result).toMatchObject({ success: true, rowsAffected: 1 });
+    expect(dbMockState.queryCalls[0]).toBe(
+      "SET ROWCOUNT @mcp_rowcap;\nUPDATE [auth].[Users] SET [status] = @update_0 WHERE [id] = @update_filter_0\nSET ROWCOUNT 0;"
+    );
+    expect(dbMockState.inputCalls.map((i) => i.name)).toContain("mcp_rowcap");
   });
 
   it("quotes identifiers for inserts", async () => {

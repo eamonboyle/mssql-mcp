@@ -2,8 +2,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   clampRowLimit,
   getDefaultSearchLimit,
+  getMcpHttpHost,
+  getMcpHttpPort,
+  getMcpTransport,
   getMaxRows,
+  getMaxWriteRows,
   getQueryTimeoutMs,
+  isDdlEnabled,
+  isWritePreviewRequired,
 } from "../config.js";
 
 const originalEnv = process.env;
@@ -37,5 +43,26 @@ describe("config helpers", () => {
     expect(clampRowLimit(200)).toBe(50);
     expect(clampRowLimit("5")).toBe(5);
     expect(clampRowLimit(undefined)).toBe(50);
+  });
+
+  it("reads transport and safety defaults", () => {
+    delete process.env.MCP_TRANSPORT;
+    delete process.env.MCP_HTTP_HOST;
+    delete process.env.MCP_HTTP_PORT;
+    delete process.env.ENABLE_DDL;
+    delete process.env.MAX_WRITE_ROWS;
+    delete process.env.REQUIRE_WRITE_PREVIEW;
+
+    expect(getMcpTransport()).toBe("stdio");
+    expect(getMcpHttpHost()).toBe("127.0.0.1");
+    expect(getMcpHttpPort()).toBe(3333);
+    expect(isDdlEnabled()).toBe(false);
+    expect(getMaxWriteRows()).toBe(100);
+    expect(isWritePreviewRequired()).toBe(true);
+  });
+
+  it("enables DDL when ENABLE_DDL=true", () => {
+    process.env.ENABLE_DDL = "true";
+    expect(isDdlEnabled()).toBe(true);
   });
 });

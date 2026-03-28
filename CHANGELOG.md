@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-28
+
+### Added
+
+- MCP tools: `list_databases`, `list_foreign_keys`, `describe_relationships`, `analyze_table`, `preview_update`, and `preview_delete`.
+- Structured tool results: versioned JSON payloads (`version: 1`) with shared Zod `outputSchema`, normalization helpers, and `toToolStructuredContent` for consistent client parsing.
+- Write-preview workflow: `update_data` and `delete_data` integrate with preview tools and server-side result storage; optional enforcement via `REQUIRE_WRITE_PREVIEW` (default `true`). When enabled, successful `preview_update` / `preview_delete` responses include a short-lived `previewToken` that must be replayed on the matching write; tokens are one-time and bound to the same table, filters, and update payload.
+- Row cap for matching writes: `MAX_WRITE_ROWS` rejects previews that match too many rows, and update/delete execution uses `SET ROWCOUNT` so affected rows cannot exceed the cap.
+- DDL gating: `ENABLE_DDL` (default `false`) must be enabled for `create_table`, `create_index`, and `drop_table`.
+- MCP resource template `object_dependencies` for object dependency metadata.
+- In-memory `ServerState` for caching explain-plan and read-only query result artifacts across tool calls, with TTL and bounded size to limit memory use.
+- Tests covering analyze-table behavior, config parsing, MCP result shapes, resources, and tool registration.
+
+### Fixed
+
+- `update_data` accepts optional `schemaName`, matching `preview_update` / `delete_data` so previews and writes target the same object.
+- `list_foreign_keys` with `schemaName` includes keys where either the parent or referencing side is in that schema.
+- Tool error payloads: preserve explicit `error.code` when present; classify preview-token and confirmation failures for clients (`PREVIEW_TOKEN_INVALID`, `CONFIRMATION_REQUIRED`, and related codes).
+
+### Changed
+
+- Server instructions emphasize `analyze_table`, `describe_relationships`, and running `preview_update` / `preview_delete` before destructive work.
+- Tool outcomes are text- and JSON-oriented; experimental MCP Apps-style HTML output was removed in favor of portable structured content.
+- Write and DDL tools use clearer confirmation messaging aligned with previews and DDL policy.
+- Schema and resource listing improvements (foreign keys, relationships, dependencies, database summary data).
+
 ## [1.2.0] - 2026-03-27
 
 ### Added
