@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "mssql": {
+      "command": "npx",
+      "args": ["-y", "@eamonboyle/mssql-mcp"],
+      "env": {
+        "SERVER_NAME": "localhost",
+        "DATABASE_NAME": "YourDatabase",
+        "DATABASES": "",
+        "DB_USER": "",
+        "DB_PASSWORD": "",
+        "READONLY": "false",
+        "CONNECTION_TIMEOUT": "30",
+        "QUERY_TIMEOUT_MS": "30000",
+        "MAX_ROWS": "10000",
+        "TRUST_SERVER_CERTIFICATE": "false",
+        "MCP_TRANSPORT": "stdio",
+        "MCP_HTTP_HOST": "127.0.0.1",
+        "MCP_HTTP_PORT": "3333",
+        "MCP_BASE_URL": "",
+        "ENABLE_DDL": "false",
+        "MAX_WRITE_ROWS": "100",
+        "REQUIRE_WRITE_PREVIEW": "true"
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "mssql",
+  "version": "1.3.0",
+  "description": "Microsoft SQL Server Model Context Protocol (MCP) server for Cursor — query and manage databases with natural language, with preview-based write safety.",
+  "author": {
+    "name": "Eamon Boyle"
+  },
+  "homepage": "https://github.com/eamonboyle/mssql-mcp",
+  "repository": "https://github.com/eamonboyle/mssql-mcp",
+  "license": "MIT",
+  "keywords": [
+    "mssql",
+    "sql-server",
+    "database",
+    "mcp",
+    "model-context-protocol",
+    "cursor"
+  ],
+  "category": "developer-tools",
+  "tags": ["database", "sql", "sql-server", "mcp"],
+  "rules": "./rules/",
+  "skills": "./skills/"
+}

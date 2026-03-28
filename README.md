@@ -37,10 +37,25 @@ AI: *queries your MSSQL database and returns the results in plain English*
 
 ## Supported AI Clients
 
-- [Claude Desktop](https://claude.ai/)
-- [Cursor](https://cursor.com/) (VS Code with AI)
+- [Claude Desktop](https://claude.ai/) — manual MCP config, **`npx`**, or a **`.mcpb` Desktop Extension** (see below)
+- [Cursor](https://cursor.com/) (VS Code with AI) — **`npx`**, **Add to Cursor** link above, or the in-repo **Cursor plugin** (see below)
 - [VS Code Agent](https://marketplace.visualstudio.com/items?itemName=Anthropic.anthropic-vscode) extension
 - Any MCP-compatible client
+
+### Cursor plugin (this repository)
+
+A Cursor plugin lives under [`plugins/mssql/`](plugins/mssql/): it includes [`mcp.json`](plugins/mssql/mcp.json) (defaults to `npx -y @eamonboyle/mssql-mcp`), plus rules and a skill for safer MSSQL MCP usage. The repo root lists the plugin in [`.cursor-plugin/marketplace.json`](.cursor-plugin/marketplace.json) for multi-plugin style installs. See [`plugins/mssql/README.md`](plugins/mssql/README.md) for setup and local-dev overrides.
+
+### Claude Desktop Extension (`.mcpb`)
+
+To build an installable [Desktop Extension](https://www.anthropic.com/engineering/desktop-extensions) bundle that embeds the server and production dependencies:
+
+```bash
+npm install
+npm run pack:claude
+```
+
+This produces `claude-extension/mssql-mcp-<version>.mcpb` (gitignored). Open that file in Claude Desktop to install. User-facing connection settings are defined in [`claude-extension/manifest.json`](claude-extension/manifest.json) (`user_config`). Details: [`claude-extension/README.md`](claude-extension/README.md).
 
 ## Quick Start 🚀
 
@@ -235,6 +250,8 @@ VS Code uses `.vscode/mcp.json` (or **MCP: Open User Configuration**) with a top
 ```
 
 ### Claude Desktop Setup
+
+**Alternative:** Install from a built **`mssql-mcp-<version>.mcpb`** (see [Claude Desktop Extension](#claude-desktop-extension-mcpb) above) instead of editing JSON.
 
 1. Open **File → Settings → Developer → Edit Config**
 2. Add the MCP server configuration:

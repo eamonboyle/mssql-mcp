@@ -1,0 +1,16 @@
+---
+description: Safe use of the MSSQL MCP server — previews, read-only mode, and DDL
+alwaysApply: false
+---
+
+When using MCP tools backed by `@eamonboyle/mssql-mcp`:
+
+1. If writes are allowed (`READONLY` is not `true`), use `preview_update` / `preview_delete` before `update_data` / `delete_data` when `REQUIRE_WRITE_PREVIEW` is enabled (default). Pass the returned `previewToken` with `confirmed=true` only after reviewing affected rows.
+
+2. Honor read-only mode: if the server runs with `READONLY=true`, do not attempt inserts, updates, deletes, or DDL tools.
+
+3. Treat DDL as dangerous: `create_table`, `create_index`, and `drop_table` exist only when `ENABLE_DDL=true`. Default is off — do not ask for DDL unless the user explicitly wants schema changes and the server is configured for it.
+
+4. Prefer parameterized patterns: use `search_data` and validated read tools rather than inventing raw SQL when the task fits those tools.
+
+5. Never log or paste `DB_PASSWORD` or connection secrets into chat or committed files.

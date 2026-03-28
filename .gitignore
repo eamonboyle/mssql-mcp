@@ -3,3 +3,10 @@ dist/
 .env
 .env.local
 .env.*.local
+
+# Claude Desktop extension staging (see npm run pack:claude)
+claude-extension/server/
+claude-extension/node_modules/
+claude-extension/package.json
+claude-extension/package-lock.json
+claude-extension/*.mcpb

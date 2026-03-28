@@ -1,0 +1,178 @@
+{
+  "manifest_version": "0.2",
+  "name": "mssql-mcp",
+  "display_name": "MSSQL MCP",
+  "version": "1.3.0",
+  "description": "Model Context Protocol server for Microsoft SQL Server — schema discovery, reads, previews, and gated writes. Experimental; not for production.",
+  "long_description": "Connect Claude Desktop to Microsoft SQL Server or Azure SQL using MCP. Supports natural-language driven queries, schema inspection, row-level CRUD with preview tokens, optional DDL tools, and read-only mode. Configure your server host, database, and credentials securely when installing.",
+  "author": {
+    "name": "Eamon Boyle"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eamonboyle/mssql-mcp.git"
+  },
+  "homepage": "https://github.com/eamonboyle/mssql-mcp",
+  "documentation": "https://github.com/eamonboyle/mssql-mcp#readme",
+  "license": "MIT",
+  "keywords": ["mssql", "sql-server", "database", "mcp", "model-context-protocol"],
+  "tools_generated": true,
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "SERVER_NAME": "${user_config.server_name}",
+        "DATABASE_NAME": "${user_config.database_name}",
+        "DATABASES": "${user_config.databases}",
+        "DB_USER": "${user_config.db_user}",
+        "DB_PASSWORD": "${user_config.db_password}",
+        "READONLY": "${user_config.readonly}",
+        "CONNECTION_TIMEOUT": "${user_config.connection_timeout}",
+        "QUERY_TIMEOUT_MS": "${user_config.query_timeout_ms}",
+        "MAX_ROWS": "${user_config.max_rows}",
+        "TRUST_SERVER_CERTIFICATE": "${user_config.trust_server_certificate}",
+        "MCP_TRANSPORT": "${user_config.mcp_transport}",
+        "MCP_HTTP_HOST": "${user_config.mcp_http_host}",
+        "MCP_HTTP_PORT": "${user_config.mcp_http_port}",
+        "MCP_BASE_URL": "${user_config.mcp_base_url}",
+        "ENABLE_DDL": "${user_config.enable_ddl}",
+        "MAX_WRITE_ROWS": "${user_config.max_write_rows}",
+        "REQUIRE_WRITE_PREVIEW": "${user_config.require_write_preview}"
+      }
+    }
+  },
+  "user_config": {
+    "server_name": {
+      "type": "string",
+      "title": "SQL Server host",
+      "description": "Host name (e.g. localhost, my-server.database.windows.net).",
+      "required": true,
+      "default": "localhost"
+    },
+    "database_name": {
+      "type": "string",
+      "title": "Default database",
+      "description": "Default database name. Can be left empty if ‘Additional databases’ lists all allowed databases.",
+      "required": false,
+      "default": ""
+    },
+    "databases": {
+      "type": "string",
+      "title": "Additional databases",
+      "description": "Optional comma-separated allowlist (e.g. ProdDB,StagingDB). Leave empty for single-database mode.",
+      "required": false,
+      "default": ""
+    },
+    "db_user": {
+      "type": "string",
+      "title": "SQL login",
+      "description": "SQL Server user (SQL authentication). Leave empty for Windows integrated authentication setups.",
+      "required": false,
+      "default": ""
+    },
+    "db_password": {
+      "type": "string",
+      "title": "SQL password",
+      "description": "SQL Server password (SQL authentication). Leave empty if not used.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    },
+    "readonly": {
+      "type": "boolean",
+      "title": "Read-only mode",
+      "description": "When enabled, only inspection and read tools are available.",
+      "default": false
+    },
+    "connection_timeout": {
+      "type": "number",
+      "title": "Connection timeout (seconds)",
+      "description": "Connection timeout in seconds.",
+      "default": 30,
+      "min": 1,
+      "max": 600
+    },
+    "query_timeout_ms": {
+      "type": "number",
+      "title": "Query timeout (ms)",
+      "description": "Query request timeout in milliseconds.",
+      "default": 30000,
+      "min": 1000,
+      "max": 600000
+    },
+    "max_rows": {
+      "type": "number",
+      "title": "Max rows (reads)",
+      "description": "Maximum rows returned by read tools.",
+      "default": 10000,
+      "min": 1,
+      "max": 1000000
+    },
+    "trust_server_certificate": {
+      "type": "boolean",
+      "title": "Trust server certificate",
+      "description": "Enable for self-signed certificates (typical in local dev).",
+      "default": false
+    },
+    "mcp_transport": {
+      "type": "string",
+      "title": "MCP transport",
+      "description": "stdio (default) or http for Streamable HTTP.",
+      "default": "stdio",
+      "required": false
+    },
+    "mcp_http_host": {
+      "type": "string",
+      "title": "HTTP bind host",
+      "description": "Used when transport is http.",
+      "default": "127.0.0.1",
+      "required": false
+    },
+    "mcp_http_port": {
+      "type": "number",
+      "title": "HTTP port",
+      "description": "Used when transport is http.",
+      "default": 3333,
+      "min": 1,
+      "max": 65535,
+      "required": false
+    },
+    "mcp_base_url": {
+      "type": "string",
+      "title": "Public base URL",
+      "description": "Optional external base URL for HTTP deployments.",
+      "default": "",
+      "required": false
+    },
+    "enable_ddl": {
+      "type": "boolean",
+      "title": "Enable DDL tools",
+      "description": "Allows create/drop table and create index tools when enabled.",
+      "default": false
+    },
+    "max_write_rows": {
+      "type": "number",
+      "title": "Max rows per write",
+      "description": "Cap on rows a single write tool may affect.",
+      "default": 100,
+      "min": 1,
+      "max": 100000
+    },
+    "require_write_preview": {
+      "type": "boolean",
+      "title": "Require write preview",
+      "description": "When enabled, use preview_update / preview_delete before update_data / delete_data.",
+      "default": true
+    }
+  }
+}

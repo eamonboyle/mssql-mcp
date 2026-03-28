@@ -33,3 +33,10 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Validate Claude Desktop extension manifest
+        run: npx mcpb validate claude-extension/manifest.json
+
+      - name: Pack Claude Desktop extension
+        if: matrix.node-version == 22
+        run: node scripts/claude-mcpb-pack.mjs --skip-build

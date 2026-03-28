@@ -1,0 +1,19 @@
+{
+  "name": "mssql-mcp-marketplace",
+  "owner": {
+    "name": "Eamon Boyle"
+  },
+  "metadata": {
+    "description": "Cursor plugin bundling the MSSQL MCP server with usage guidance."
+  },
+  "plugins": [
+    {
+      "name": "mssql",
+      "source": "plugins/mssql",
+      "description": "Microsoft SQL Server MCP — schema discovery, reads, previews, and gated writes.",
+      "keywords": ["mssql", "sql-server", "database", "mcp"],
+      "category": "developer-tools",
+      "tags": ["database", "sql", "mcp"]
+    }
+  ]
+}
