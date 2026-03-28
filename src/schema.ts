@@ -457,7 +457,6 @@ export async function describeObjectDependencies(
   return result.recordset;
 }
 
-/** Plain rows from `analyzeTable` (avoids `IRecordSet` leaking into public types). */
 export interface AnalyzeTableResult {
   summary: Record<string, unknown> | null;
   indexes: Array<Record<string, unknown>>;

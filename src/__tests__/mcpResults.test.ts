@@ -16,7 +16,7 @@ describe("buildInlineDataAttachment", () => {
     expect(s).toContain('"summary": "x"');
   });
 
-  it("skips strings (e.g. normalized tool payloads that surface XML as data)", () => {
+  it("skips strings", () => {
     expect(buildInlineDataAttachment("<ShowPlanXML />")).toBe("");
   });
 

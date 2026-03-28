@@ -36,7 +36,6 @@ function formatScalar(value: unknown): string {
   return String(value);
 }
 
-/** Human-readable summary for the primary MCP text block (tabular details are also inlined as JSON when applicable). */
 export function formatAnalyzeTableText(data: {
   summary: AnalyzeRow | null;
   indexes: IndexRow[];

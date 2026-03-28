@@ -43,12 +43,6 @@ export interface StandardToolPayload extends Record<string, unknown> {
   truncated?: boolean;
 }
 
-export interface StandardToolEnvelope {
-  payload: StandardToolPayload;
-  isError: boolean;
-  content: ContentBlock[];
-}
-
 export function classifyToolErrorCode(
   raw: Record<string, unknown>,
   message: string,
@@ -98,10 +92,7 @@ function createTextSummary(payload: StandardToolPayload) {
   return payload.message;
 }
 
-/** Maximum characters for the JSON block appended to the primary text block. */
 const MAX_INLINE_JSON_CHARS = 120_000;
-
-/** When `data` is an array, cap how many elements are inlined before truncating with a note. */
 const MAX_INLINE_ARRAY_ITEMS = 500;
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -122,10 +113,6 @@ function shouldInlineDataInText(data: unknown): boolean {
   return isPlainRecord(data);
 }
 
-/**
- * Builds a newline-prefixed JSON attachment for the primary text block so clients
- * that only surface `content[0].text` still receive tabular/object payloads.
- */
 export function buildInlineDataAttachment(data: unknown): string {
   if (!shouldInlineDataInText(data)) {
     return "";
