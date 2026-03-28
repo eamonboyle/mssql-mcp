@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildInlineDataAttachment,
   createToolResult,
+  toToolStructuredContent,
 } from "../mcpResults.js";
 
 describe("buildInlineDataAttachment", () => {
@@ -43,6 +44,12 @@ describe("createToolResult", () => {
       expect(result.content[0].text).toContain("Found 2 relationship row(s).");
       expect(result.content[0].text).toContain("parentTableName");
     }
+    expect(result.structuredContent).toMatchObject({
+      version: 1,
+      success: true,
+      message: "Found 2 relationship row(s).",
+    });
+    expect(Array.isArray(result.structuredContent?.data)).toBe(true);
   });
 
   it("does not append data on failure", () => {
@@ -56,5 +63,19 @@ describe("createToolResult", () => {
     if (result.content[0]?.type === "text") {
       expect(result.content[0].text).not.toContain("should");
     }
+    expect(result.structuredContent?.success).toBe(false);
+    expect(result.structuredContent?.error).toEqual({ code: "X" });
+  });
+});
+
+describe("toToolStructuredContent", () => {
+  it("stringifies bigint fields for JSON compatibility", () => {
+    const structured = toToolStructuredContent({
+      version: 1,
+      success: true,
+      message: "ok",
+      data: [{ n: 99n }],
+    });
+    expect(structured.data).toEqual([{ n: "99" }]);
   });
 });

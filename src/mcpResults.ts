@@ -159,6 +159,37 @@ export function createResourceLink(
   };
 }
 
+/**
+ * JSON-serializable copy of the tool payload for MCP `structuredContent`.
+ * Required when tools declare `outputSchema` — the SDK rejects missing structured output on success.
+ */
+export function toToolStructuredContent(
+  payload: StandardToolPayload
+): Record<string, unknown> {
+  try {
+    const json = JSON.stringify(payload, (_key, value) => {
+      if (typeof value === "bigint") {
+        return value.toString();
+      }
+      if (typeof Buffer !== "undefined" && Buffer.isBuffer(value)) {
+        return value.toString("base64");
+      }
+      return value;
+    });
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    const fallback: Record<string, unknown> = {
+      version: payload.version,
+      success: payload.success,
+      message: payload.message,
+    };
+    if (payload.error !== undefined) {
+      fallback.error = payload.error;
+    }
+    return fallback;
+  }
+}
+
 export function createToolResult(
   payload: StandardToolPayload,
   extraContent: ContentBlock[] = []
@@ -178,6 +209,7 @@ export function createToolResult(
       ...extraContent,
     ],
     isError: !payload.success,
+    structuredContent: toToolStructuredContent(payload),
   };
 }
 
