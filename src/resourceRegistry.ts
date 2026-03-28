@@ -1,11 +1,15 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
+  describeObjectDependencies,
   describeDatabaseObject,
   describeTableSchema,
+  getDatabaseSchemaSummary,
+  listForeignKeys,
   listDatabaseObjects,
   listDatabaseTables,
 } from "./schema.js";
 import { promptDefinitions } from "./promptRegistry.js";
+import { ServerState } from "./serverState.js";
 
 interface ResourceTemplateDefinition {
   name: string;
@@ -27,6 +31,7 @@ export interface ResourceRegistryContext {
   toolNames: string[];
   maxRows: number;
   queryTimeoutMs: number;
+  state: ServerState;
 }
 
 const resourceTemplates: ResourceTemplateDefinition[] = [
@@ -43,8 +48,99 @@ const resourceTemplates: ResourceTemplateDefinition[] = [
       "Definition and metadata for a single table, view, procedure, function, or trigger.",
     mimeType: "application/json",
   },
+  {
+    name: "object_dependencies",
+    uriTemplate:
+      "mssql://database/{databaseName}/object/{schemaName}/{objectName}/dependencies",
+    description: "Dependencies for a single object.",
+    mimeType: "application/json",
+  },
 ];
 const RESOURCE_LIST_TTL_MS = 30_000;
+
+function buildUiDocument(title: string, body: string) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${title}</title>
+    <style>
+      :root {
+        --bg: #101317;
+        --panel: rgba(20, 27, 34, 0.88);
+        --text: #f1eee8;
+        --muted: #96a3b0;
+        --accent: #f5a524;
+        --line: rgba(245, 165, 36, 0.18);
+        --shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Georgia, "Times New Roman", serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(245, 165, 36, 0.18), transparent 28%),
+          radial-gradient(circle at bottom right, rgba(43, 106, 255, 0.18), transparent 25%),
+          linear-gradient(160deg, #0b0f13 0%, #101317 45%, #121920 100%);
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 40px 24px 56px;
+      }
+      .eyebrow {
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-size: 12px;
+      }
+      h1 {
+        margin: 10px 0 14px;
+        font-size: clamp(34px, 7vw, 72px);
+        line-height: 0.96;
+        font-weight: 600;
+      }
+      p {
+        max-width: 780px;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      .panel {
+        margin-top: 28px;
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+      pre {
+        overflow: auto;
+        padding: 18px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.03);
+        color: #d8e3ef;
+        font: 13px/1.5 "Cascadia Code", Consolas, monospace;
+      }
+      .accent-bar {
+        width: 120px;
+        height: 3px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--accent), transparent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      ${body}
+    </main>
+  </body>
+</html>`;
+}
 
 function buildResourceText(payload: unknown) {
   return JSON.stringify(payload, null, 2);
@@ -56,6 +152,13 @@ function parseResourceUri(uri: string) {
     .split("/")
     .filter(Boolean)
     .map((segment) => decodeURIComponent(segment));
+
+  if (parsed.protocol === "ui:") {
+    return {
+      resourceType: "ui",
+      segments: [parsed.hostname, ...segments],
+    };
+  }
 
   return {
     resourceType: parsed.hostname,
@@ -134,6 +237,24 @@ async function readResourcePayload(
         ),
       };
     }
+
+    if (resourceName === "schema-summary") {
+      return {
+        databaseName,
+        summary: await getCachedValue(`schema-summary:${databaseName}`, () =>
+          getDatabaseSchemaSummary(databaseName)
+        ),
+      };
+    }
+
+    if (resourceName === "foreign-keys") {
+      return {
+        databaseName,
+        foreignKeys: await getCachedValue(`foreign-keys:${databaseName}`, () =>
+          listForeignKeys(databaseName)
+        ),
+      };
+    }
   }
 
   if (parsed.resourceType === "table") {
@@ -159,6 +280,110 @@ async function readResourcePayload(
     }
 
     return object;
+  }
+
+  if (parsed.resourceType === "query-plan") {
+    const [planId] = parsed.segments;
+    const plan = context.state.getQueryPlan(planId);
+    if (!plan) {
+      throw new Error(`Unknown query plan resource '${planId}'.`);
+    }
+
+    return plan;
+  }
+
+  if (parsed.resourceType === "query-result") {
+    const [resultId] = parsed.segments;
+    const result = context.state.getQueryResult(resultId);
+    if (!result) {
+      throw new Error(`Unknown query result resource '${resultId}'.`);
+    }
+
+    return result;
+  }
+
+  if (parsed.resourceType === "ui") {
+    const [, appName] = parsed.segments;
+    if (appName === "query-plan-viewer") {
+      return buildUiDocument(
+        "Query Plan Viewer",
+        `<div class="eyebrow">MSSQL MCP App</div>
+         <h1>Execution Plan Atlas</h1>
+         <div class="accent-bar"></div>
+         <p>This app resource is intended for clients that support MCP Apps. Render the associated tool result and query-plan resource together so the user can inspect operators, costs, and XML details without leaving chat.</p>
+         <section class="panel">
+           <pre>{
+  "expectedInput": "mssql://query-plan/{id}",
+  "recommendedTool": "explain_query",
+  "fallback": "Read the linked plan resource as JSON or XML."
+}</pre>
+         </section>`
+      );
+    }
+
+    if (appName === "schema-explorer") {
+      return buildUiDocument(
+        "Schema Explorer",
+        `<div class="eyebrow">MSSQL MCP App</div>
+         <h1>Schema Atlas</h1>
+         <div class="accent-bar"></div>
+         <p>Use this app with schema, object, relationship, and foreign-key resources. Hosts can pair it with live tool outputs to present a browsable database map.</p>
+         <section class="panel"><pre>{
+  "resources": [
+    "mssql://database/{db}/schema-summary",
+    "mssql://database/{db}/foreign-keys",
+    "mssql://table/{db}/{schema}/{table}",
+    "mssql://object/{db}/{schema}/{object}"
+  ]
+}</pre></section>`
+      );
+    }
+
+    if (appName === "result-grid") {
+      return buildUiDocument(
+        "Result Grid",
+        `<div class="eyebrow">MSSQL MCP App</div>
+         <h1>Result Grid</h1>
+         <div class="accent-bar"></div>
+         <p>This app is a client-side grid target for large read and search results. The plain-text fallback remains the linked JSON resource.</p>
+         <section class="panel"><pre>{
+  "expectedInput": "mssql://query-result/{id}",
+  "recommendedTools": ["read_data", "search_data"]
+}</pre></section>`
+      );
+    }
+
+    if (appName === "write-preview") {
+      return buildUiDocument(
+        "Write Preview",
+        `<div class="eyebrow">MSSQL MCP App</div>
+         <h1>Write Preview Ledger</h1>
+         <div class="accent-bar"></div>
+         <p>Use this app with preview tools to inspect affected rows, filters, and risk before the user confirms any write or DDL action.</p>
+         <section class="panel"><pre>{
+  "recommendedTools": ["preview_update", "preview_delete"],
+  "safety": ["confirmed=true", "MAX_WRITE_ROWS", "ENABLE_DDL"]
+}</pre></section>`
+      );
+    }
+  }
+
+  if (
+    parsed.resourceType === "database" &&
+    parsed.segments[1] === "object" &&
+    parsed.segments[4] === "dependencies"
+  ) {
+    const [databaseName, _objectKeyword, schemaName, objectName] = parsed.segments;
+    return {
+      databaseName,
+      schemaName,
+      objectName,
+      dependencies: await describeObjectDependencies(
+        objectName,
+        databaseName,
+        schemaName
+      ),
+    };
   }
 
   throw new Error(`Unknown resource URI: ${uri}`);
@@ -233,6 +458,28 @@ export function registerResources(
       },
       readHandler
     );
+
+    server.registerResource(
+      `${databaseName}_schema_summary`,
+      `mssql://database/${encodeURIComponent(databaseName)}/schema-summary`,
+      {
+        title: `${databaseName} Schema Summary`,
+        description: `Schema-level summary for database ${databaseName}.`,
+        mimeType: "application/json",
+      },
+      readHandler
+    );
+
+    server.registerResource(
+      `${databaseName}_foreign_keys`,
+      `mssql://database/${encodeURIComponent(databaseName)}/foreign-keys`,
+      {
+        title: `${databaseName} Foreign Keys`,
+        description: `Foreign key relationships for database ${databaseName}.`,
+        mimeType: "application/json",
+      },
+      readHandler
+    );
   }
 
   server.registerResource(
@@ -253,6 +500,41 @@ export function registerResources(
           )
         ).flat(),
       }),
+      complete: {
+        databaseName: (value) =>
+          context.allowedDatabases.filter((databaseName) =>
+            databaseName
+              .toLowerCase()
+              .startsWith(String(value ?? "").toLowerCase())
+          ),
+        schemaName: async (_value, variables) => {
+          const databaseName = variables?.arguments?.databaseName;
+          if (!databaseName) {
+            return [];
+          }
+          const tables = await getCachedValue(`tables:${databaseName}`, () =>
+            listDatabaseTables(databaseName)
+          );
+          return [...new Set(tables.map((table) => table.schemaName))];
+        },
+        tableName: async (value, variables) => {
+          const databaseName = variables?.arguments?.databaseName;
+          const schemaName = variables?.arguments?.schemaName;
+          if (!databaseName) {
+            return [];
+          }
+          const tables = await getCachedValue(`tables:${databaseName}`, () =>
+            listDatabaseTables(databaseName, schemaName)
+          );
+          return tables
+            .map((table) => table.tableName)
+            .filter((tableName) =>
+              tableName
+                .toLowerCase()
+                .startsWith(String(value ?? "").toLowerCase())
+            );
+        },
+      },
     }),
     {
       title: "Table Schema",
@@ -281,6 +563,39 @@ export function registerResources(
           )
         ).flat(),
       }),
+      complete: {
+        databaseName: (value) =>
+          context.allowedDatabases.filter((databaseName) =>
+            databaseName
+              .toLowerCase()
+              .startsWith(String(value ?? "").toLowerCase())
+          ),
+        schemaName: async (_value, variables) => {
+          const databaseName = variables?.arguments?.databaseName;
+          if (!databaseName) {
+            return [];
+          }
+          const objects = await getCachedValue(`objects:${databaseName}`, () =>
+            listDatabaseObjects(databaseName)
+          );
+          return [...new Set(objects.map((object) => object.schemaName))];
+        },
+        objectName: async (value, variables) => {
+          const databaseName = variables?.arguments?.databaseName;
+          const schemaName = variables?.arguments?.schemaName;
+          if (!databaseName) {
+            return [];
+          }
+          const objects = await getCachedValue(`objects:${databaseName}`, () =>
+            listDatabaseObjects(databaseName, undefined, schemaName)
+          );
+          return objects
+            .map((object) => object.name)
+            .filter((name) =>
+              name.toLowerCase().startsWith(String(value ?? "").toLowerCase())
+            );
+        },
+      },
     }),
     {
       title: "Object Definition",
@@ -289,4 +604,71 @@ export function registerResources(
     },
     readHandler
   );
+
+  server.registerResource(
+    "object_dependencies",
+    new ResourceTemplate(resourceTemplates[2].uriTemplate, {
+      list: undefined,
+    }),
+    {
+      title: "Object Dependencies",
+      description: resourceTemplates[2].description,
+      mimeType: resourceTemplates[2].mimeType,
+    },
+    readHandler
+  );
+
+  server.registerResource(
+    "query_plan_resource",
+    new ResourceTemplate("mssql://query-plan/{planId}", {
+      list: async () => ({
+        resources: context.state.listQueryPlans().map((plan) => ({
+          uri: `mssql://query-plan/${plan.id}`,
+          name: plan.id,
+        })),
+      }),
+    }),
+    {
+      title: "Query Plans",
+      description: "Stored query plan results generated by explain_query.",
+      mimeType: "application/json",
+    },
+    readHandler
+  );
+
+  server.registerResource(
+    "query_result_resource",
+    new ResourceTemplate("mssql://query-result/{resultId}", {
+      list: async () => ({
+        resources: context.state.listQueryResults().map((result) => ({
+          uri: `mssql://query-result/${result.id}`,
+          name: result.label,
+        })),
+      }),
+    }),
+    {
+      title: "Query Results",
+      description: "Stored large query results generated by read/search tools.",
+      mimeType: "application/json",
+    },
+    readHandler
+  );
+
+  for (const appName of [
+    "query-plan-viewer",
+    "schema-explorer",
+    "result-grid",
+    "write-preview",
+  ]) {
+    server.registerResource(
+      appName,
+      `ui://mssql/${appName}`,
+      {
+        title: appName,
+        description: `MCP App resource for ${appName}.`,
+        mimeType: "text/html;profile=mcp-app",
+      },
+      readHandler
+    );
+  }
 }

@@ -60,4 +60,25 @@ describe("toolRegistry write schemas", () => {
       }).success
     ).toBe(false);
   });
+
+  it("declares structured output schemas for every tool", () => {
+    for (const definition of toolDefinitions) {
+      expect(definition.outputSchema).toBeDefined();
+      expect(definition.outputSchema.version).toBeDefined();
+      expect(definition.outputSchema.success).toBeDefined();
+      expect(definition.outputSchema.message).toBeDefined();
+    }
+  });
+
+  it("requires confirmation for destructive write tools", () => {
+    const updateSchema = getToolSchema("update_data");
+    expect(
+      updateSchema.safeParse({
+        tableName: "Users",
+        updates: { status: "active" },
+        filters: [{ column: "id", operator: "=", value: 1 }],
+        confirmed: true,
+      }).success
+    ).toBe(true);
+  });
 });

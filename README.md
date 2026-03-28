@@ -25,11 +25,15 @@ AI: *queries your MSSQL database and returns the results in plain English*
 - **Natural language to SQL** — Ask questions in plain English
 - **Row-level CRUD support** — Read, insert, update, and delete rows with dedicated tools
 - **Schema discovery** — Inspect tables, views, procedures, functions, and triggers
+- **Safer write workflows** — `preview_update` and `preview_delete` plus confirmation gating for destructive tools
+- **Structured MCP outputs** — Tools now return typed `structuredContent` plus concise text and resource links
+- **MCP app resources** — Predeclared `ui://` resources for query plans, result grids, schema exploration, and write previews
 - **Query analysis** — Generate estimated execution plans with `explain_query`
-- **MCP resources and prompts** — Expose schema snapshots and prompt templates to capable clients
+- **MCP resources and prompts** — Expose schema snapshots, query artifacts, and prompt templates to capable clients
+- **Remote transport support** — Run locally over `stdio` or remotely over Streamable HTTP
 - **Multi-database support** — Connect to multiple databases on the same server
 - **Read-only mode** — Restrict to inspection, search, read, and explain tools for safer environments
-- **Secure by default** — WHERE clauses required for updates/deletes; SQL injection safeguards for reads
+- **Secure by default** — WHERE clauses required for updates/deletes; SQL injection safeguards for reads; DDL disabled unless explicitly enabled
 
 ## Supported AI Clients
 
@@ -89,6 +93,13 @@ npm run build
 | `QUERY_TIMEOUT_MS`         | No       | Query timeout in milliseconds (default: `30000`)                                     |
 | `MAX_ROWS`                 | No       | Maximum rows returned by read tools (default: `10000`)                               |
 | `TRUST_SERVER_CERTIFICATE` | No       | `"true"` for self-signed certs (e.g., local dev) (default: `"false"`)                |
+| `MCP_TRANSPORT`            | No       | `stdio` (default) or `http`                                                          |
+| `MCP_HTTP_HOST`            | No       | Bind host for Streamable HTTP mode (default: `127.0.0.1`)                            |
+| `MCP_HTTP_PORT`            | No       | Bind port for Streamable HTTP mode (default: `3333`)                                 |
+| `MCP_BASE_URL`             | No       | Optional externally visible base URL for remote deployments                          |
+| `ENABLE_DDL`               | No       | `"true"` to enable `create_table`, `create_index`, and `drop_table` (default: `false`) |
+| `MAX_WRITE_ROWS`           | No       | Maximum rows a single write tool may affect before it is blocked (default: `100`)    |
+| `REQUIRE_WRITE_PREVIEW`    | No       | `"true"` to require confirmation before destructive tools (default: `"true"`)        |
 
 \* Required for SQL authentication. For Windows/Integrated authentication, consult the [mssql](https://www.npmjs.com/package/mssql) package documentation.
 
@@ -118,6 +129,26 @@ Use [global or project MCP config](https://cursor.com/docs/context/mcp): e.g. `~
 ```
 
 Restart Cursor after changes.
+
+### Cursor HTTP MCP
+
+To expose the server remotely over Streamable HTTP:
+
+```json
+{
+  "mcpServers": {
+    "mssql-http": {
+      "url": "http://127.0.0.1:3333"
+    }
+  }
+}
+```
+
+Run the server with:
+
+```bash
+MCP_TRANSPORT=http MCP_HTTP_HOST=127.0.0.1 MCP_HTTP_PORT=3333 npx -y @eamonboyle/mssql-mcp
+```
 
 ### VS Code (`mcp.json`)
 
@@ -258,6 +289,10 @@ See `src/samples/` for example configs:
 Once configured, you can ask things like:
 
 - "Show me all users from New York"
+- "List the configured databases this MCP can access"
+- "Preview the rows that would be updated before changing status to archived"
+- "Explain this query and open the execution plan viewer"
+- "Show the foreign keys and relationships around dbo.Orders"
 - "Search the customers table for email addresses containing acme.com"
 - "Create a new table called products with columns for id, name, and price"
 - "Update all pending orders to completed status"

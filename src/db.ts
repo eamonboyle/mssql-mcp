@@ -15,7 +15,7 @@ function parseDatabaseList(value?: string): string[] {
     .filter(Boolean);
 }
 
-function getDefaultDatabaseName(): string | null {
+export function getDefaultDatabaseName(): string | null {
   const allowedDatabases = parseDatabaseList(process.env.DATABASES);
   const explicitDefault = process.env.DATABASE_NAME?.trim();
 
