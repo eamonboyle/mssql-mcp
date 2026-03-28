@@ -98,6 +98,63 @@ function createTextSummary(payload: StandardToolPayload) {
   return payload.message;
 }
 
+/** Maximum characters for the JSON block appended to the primary text block. */
+const MAX_INLINE_JSON_CHARS = 120_000;
+
+/** When `data` is an array, cap how many elements are inlined before truncating with a note. */
+const MAX_INLINE_ARRAY_ITEMS = 500;
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === null || proto === Object.prototype;
+}
+
+function shouldInlineDataInText(data: unknown): boolean {
+  if (data === null || data === undefined) {
+    return false;
+  }
+  if (Array.isArray(data)) {
+    return true;
+  }
+  return isPlainRecord(data);
+}
+
+/**
+ * Builds a newline-prefixed JSON attachment for the primary text block so clients
+ * that only surface `content[0].text` still receive tabular/object payloads.
+ */
+export function buildInlineDataAttachment(data: unknown): string {
+  if (!shouldInlineDataInText(data)) {
+    return "";
+  }
+
+  let toSerialize: unknown = data;
+  let note = "";
+
+  if (Array.isArray(data)) {
+    if (data.length > MAX_INLINE_ARRAY_ITEMS) {
+      toSerialize = data.slice(0, MAX_INLINE_ARRAY_ITEMS);
+      note = `\n… showing ${MAX_INLINE_ARRAY_ITEMS} of ${data.length} items (remainder omitted from this text preview).`;
+    }
+  }
+
+  let json: string;
+  try {
+    json = JSON.stringify(toSerialize, null, 2);
+  } catch {
+    return "\n\n(unable to serialize data for inline preview).";
+  }
+
+  if (json.length > MAX_INLINE_JSON_CHARS) {
+    return `\n\n(inline preview omitted: serialized size ${json.length} chars).`;
+  }
+
+  return `\n\n${json}${note}`;
+}
+
 export function createResourceLink(
   uri: string,
   name: string,
@@ -115,19 +172,24 @@ export function createResourceLink(
   };
 }
 
-export function createStructuredToolResult(
+export function createToolResult(
   payload: StandardToolPayload,
   extraContent: ContentBlock[] = []
 ): CallToolResult {
+  const summary = createTextSummary(payload);
+  const dataAttachment =
+    payload.success && payload.data !== undefined
+      ? buildInlineDataAttachment(payload.data)
+      : "";
+
   return {
     content: [
       {
         type: "text",
-        text: createTextSummary(payload),
+        text: summary + dataAttachment,
       },
       ...extraContent,
     ],
-    structuredContent: payload,
     isError: !payload.success,
   };
 }

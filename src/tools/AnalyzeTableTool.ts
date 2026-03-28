@@ -36,7 +36,7 @@ function formatScalar(value: unknown): string {
   return String(value);
 }
 
-/** Visible MCP text (first content block); structuredContent still carries raw `data`. */
+/** Human-readable summary for the primary MCP text block (tabular details are also inlined as JSON when applicable). */
 export function formatAnalyzeTableText(data: {
   summary: AnalyzeRow | null;
   indexes: IndexRow[];

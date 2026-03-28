@@ -57,7 +57,7 @@ describe("resourceRegistry", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("registers query-plan and app resources", async () => {
+  it("registers query-plan resources", async () => {
     const handlers = new Map<string, (uri: URL) => Promise<unknown>>();
     const state = new ServerState();
     state.storeQueryPlan("AppDb", "SELECT 1", "<ShowPlanXML />");
@@ -92,12 +92,5 @@ describe("resourceRegistry", () => {
     )) as { contents: Array<{ text: string }> };
 
     expect(result.contents[0].text).toContain("ShowPlanXML");
-
-    const appHandler = handlers.get("query-plan-viewer");
-    const appResult = (await appHandler?.(
-      new URL("ui://mssql/query-plan-viewer")
-    )) as { contents: Array<{ text: string }> };
-
-    expect(appResult.contents[0].text).toContain("Execution Plan Atlas");
   });
 });

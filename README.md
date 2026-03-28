@@ -26,8 +26,7 @@ AI: *queries your MSSQL database and returns the results in plain English*
 - **Row-level CRUD support** — Read, insert, update, and delete rows with dedicated tools
 - **Schema discovery** — Inspect tables, views, procedures, functions, and triggers
 - **Safer write workflows** — `preview_update` and `preview_delete` plus confirmation gating for destructive tools
-- **Structured MCP outputs** — Tools now return typed `structuredContent` plus concise text and resource links
-- **MCP app resources** — Predeclared `ui://` resources for query plans, result grids, schema exploration, and write previews
+- **Rich text tool results** — Concise summaries with JSON inlined in the primary text block when helpful, plus resource links for large artifacts
 - **Query analysis** — Generate estimated execution plans with `explain_query`
 - **MCP resources and prompts** — Expose schema snapshots, query artifacts, and prompt templates to capable clients
 - **Remote transport support** — Run locally over `stdio` or remotely over Streamable HTTP

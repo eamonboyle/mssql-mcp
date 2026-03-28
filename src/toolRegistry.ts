@@ -40,7 +40,6 @@ export interface ToolDefinition {
   requiresConfirmation?: boolean;
   requiresDdl?: boolean;
   writePreviewTool?: string;
-  _meta?: Record<string, unknown>;
 }
 
 const recordSchema = z.record(z.string(), z.unknown());
@@ -319,11 +318,6 @@ export const toolDefinitions: ToolDefinition[] = [
         databaseName: databaseNameSchema.optional(),
       })
       .passthrough(),
-    _meta: {
-      ui: {
-        resourceUri: "ui://mssql/result-grid",
-      },
-    },
   },
   {
     tool: searchDataTool,
@@ -357,11 +351,6 @@ export const toolDefinitions: ToolDefinition[] = [
         databaseName: databaseNameSchema.optional(),
       })
       .passthrough(),
-    _meta: {
-      ui: {
-        resourceUri: "ui://mssql/result-grid",
-      },
-    },
   },
   {
     tool: explainQueryTool,
@@ -380,11 +369,6 @@ export const toolDefinitions: ToolDefinition[] = [
         databaseName: databaseNameSchema.optional(),
       })
       .passthrough(),
-    _meta: {
-      ui: {
-        resourceUri: "ui://mssql/query-plan-viewer",
-      },
-    },
   },
   {
     tool: previewUpdateTool,
@@ -405,11 +389,6 @@ export const toolDefinitions: ToolDefinition[] = [
         databaseName: databaseNameSchema.optional(),
       })
       .strict(),
-    _meta: {
-      ui: {
-        resourceUri: "ui://mssql/write-preview",
-      },
-    },
   },
   {
     tool: previewDeleteTool,
@@ -427,11 +406,6 @@ export const toolDefinitions: ToolDefinition[] = [
         databaseName: databaseNameSchema.optional(),
       })
       .strict(),
-    _meta: {
-      ui: {
-        resourceUri: "ui://mssql/write-preview",
-      },
-    },
   },
   {
     tool: insertDataTool,

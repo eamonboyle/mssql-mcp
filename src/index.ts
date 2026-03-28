@@ -21,7 +21,7 @@ import {
 import { getAllowedDatabases } from "./db.js";
 import {
   createResourceLink,
-  createStructuredToolResult,
+  createToolResult,
   normalizeToolResult,
   type StandardToolPayload,
 } from "./mcpResults.js";
@@ -80,14 +80,13 @@ function createServerInstance() {
         inputSchema: definition.inputSchema,
         outputSchema: definition.outputSchema,
         annotations: definition.annotations,
-        _meta: definition._meta,
       },
       async (args, extra) => {
         if (
           definition.requiresDdl &&
           !isDdlEnabled()
         ) {
-          return createStructuredToolResult({
+          return createToolResult({
             version: 1,
             success: false,
             message:
@@ -124,7 +123,7 @@ function createServerInstance() {
               });
 
               if (elicited.action !== "accept" || !elicited.content?.confirmed) {
-                return createStructuredToolResult({
+                return createToolResult({
                   version: 1,
                   success: false,
                   message: definition.writePreviewTool
@@ -138,7 +137,7 @@ function createServerInstance() {
 
               requestArgs.confirmed = true;
             } catch {
-              return createStructuredToolResult({
+              return createToolResult({
                 version: 1,
                 success: false,
                 message: definition.writePreviewTool
@@ -174,7 +173,7 @@ function createServerInstance() {
           }));
 
           if ("previewError" in preview) {
-            return createStructuredToolResult({
+            return createToolResult({
               version: 1,
               success: false,
               message: `Failed to validate write impact: ${preview.previewError}`,
@@ -185,7 +184,7 @@ function createServerInstance() {
           }
 
           if (preview.affectedRowCount > getMaxWriteRows()) {
-            return createStructuredToolResult({
+            return createToolResult({
               version: 1,
               success: false,
               message: `Write exceeds MAX_WRITE_ROWS (${getMaxWriteRows()}). Matching rows: ${preview.affectedRowCount}. Narrow the filters or raise MAX_WRITE_ROWS.`,
@@ -202,7 +201,7 @@ function createServerInstance() {
         if (definition.tool.name === "insert_data") {
           const rows = Array.isArray(requestArgs.data) ? requestArgs.data.length : 1;
           if (rows > getMaxWriteRows()) {
-            return createStructuredToolResult({
+            return createToolResult({
               version: 1,
               success: false,
               message: `Insert exceeds MAX_WRITE_ROWS (${getMaxWriteRows()}). Requested rows: ${rows}.`,
@@ -327,7 +326,7 @@ function createServerInstance() {
           });
         }
 
-        return createStructuredToolResult(payload as StandardToolPayload, extraContent);
+        return createToolResult(payload as StandardToolPayload, extraContent);
       }
     );
   }
