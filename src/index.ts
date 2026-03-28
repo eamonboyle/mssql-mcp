@@ -90,7 +90,7 @@ function createServerInstance() {
             version: 1,
             success: false,
             message:
-              "DDL tools are disabled. Set ENABLE_DDL=true to allow create/drop/index operations.",
+              "DDL tools are disabled. Set ENABLE_DDL=true to allow create_table, create_index, and drop_table.",
             error: {
               code: "DDL_DISABLED",
             },

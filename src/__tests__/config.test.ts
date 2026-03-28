@@ -60,4 +60,9 @@ describe("config helpers", () => {
     expect(getMaxWriteRows()).toBe(100);
     expect(isWritePreviewRequired()).toBe(true);
   });
+
+  it("enables DDL when ENABLE_DDL=true", () => {
+    process.env.ENABLE_DDL = "true";
+    expect(isDdlEnabled()).toBe(true);
+  });
 });

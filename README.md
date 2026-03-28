@@ -4,8 +4,8 @@
 [![npm version](https://img.shields.io/npm/v/@eamonboyle/mssql-mcp.svg)](https://www.npmjs.com/package/@eamonboyle/mssql-mcp)
 [![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 
-[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=MSSQL&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBlYW1vbmJveWxlL21zc3FsLW1jcCJdLCJlbnYiOnsiU0VSVkVSX05BTUUiOiJsb2NhbGhvc3QiLCJEQVRBQkFTRV9OQU1FIjoiWW91ckRhdGFiYXNlIiwiREFUQUJBU0VTIjoiIiwiREJfVVNFUiI6IiIsIkRCX1BBU1NXT1JEIjoiIiwiUkVBRE9OTFkiOiJmYWxzZSIsIkNPTk5FQ1RJT05fVElNRU9VVCI6IjMwIiwiUVVFUllfVElNRU9VVF9NUyI6IjMwMDAwIiwiTUFYX1JPV1MiOiIxMDAwMCIsIlRSVVNUX1NFUlZFUl9DRVJUSUZJQ0FURSI6ImZhbHNlIn19)
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://intradeus.github.io/http-protocol-redirector?r=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522mssql%2522%252C%2522command%2522%253A%2522npx%2522%252C%2522args%2522%253A%255B%2522-y%2522%252C%2522%2540eamonboyle%252Fmssql-mcp%2522%255D%252C%2522env%2522%253A%257B%2522SERVER_NAME%2522%253A%2522localhost%2522%252C%2522DATABASE_NAME%2522%253A%2522YourDatabase%2522%252C%2522DATABASES%2522%253A%2522%2522%252C%2522DB_USER%2522%253A%2522%2522%252C%2522DB_PASSWORD%2522%253A%2522%2522%252C%2522READONLY%2522%253A%2522false%2522%252C%2522CONNECTION_TIMEOUT%2522%253A%252230%2522%252C%2522QUERY_TIMEOUT_MS%2522%253A%252230000%2522%252C%2522MAX_ROWS%2522%253A%252210000%2522%252C%2522TRUST_SERVER_CERTIFICATE%2522%253A%2522false%2522%257D%257D)
+[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=MSSQL&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBlYW1vbmJveWxlL21zc3FsLW1jcCJdLCJlbnYiOnsiU0VSVkVSX05BTUUiOiJsb2NhbGhvc3QiLCJEQVRBQkFTRV9OQU1FIjoiWW91ckRhdGFiYXNlIiwiREFUQUJBU0VTIjoiIiwiREJfVVNFUiI6IiIsIkRCX1BBU1NXT1JEIjoiIiwiUkVBRE9OTFkiOiJmYWxzZSIsIkNPTk5FQ1RJT05fVElNRU9VVCI6IjMwIiwiUVVFUllfVElNRU9VVF9NUyI6IjMwMDAwIiwiTUFYX1JPV1MiOiIxMDAwMCIsIlRSVVNUX1NFUlZFUl9DRVJUSUZJQ0FURSI6ImZhbHNlIiwiTUNQX1RSQU5TUE9SVCI6InN0ZGlvIiwiTUNQX0hUVFBfSE9TVCI6IjEyNy4wLjAuMSIsIk1DUF9IVFRQX1BPUlQiOiIzMzMzIiwiTUNQX0JBU0VfVVJMIjoiIiwiRU5BQkxFX0RETCI6ImZhbHNlIiwiTUFYX1dSSVRFX1JPV1MiOiIxMDAiLCJSRVFVSVJFX1dSSVRFX1BSRVZJRVciOiJ0cnVlIn19)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://intradeus.github.io/http-protocol-redirector?r=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522mssql%2522%252C%2522command%2522%253A%2522npx%2522%252C%2522args%2522%253A%255B%2522-y%2522%252C%2522%2540eamonboyle%252Fmssql-mcp%2522%255D%252C%2522env%2522%253A%257B%2522SERVER_NAME%2522%253A%2522localhost%2522%252C%2522DATABASE_NAME%2522%253A%2522YourDatabase%2522%252C%2522DATABASES%2522%253A%2522%2522%252C%2522DB_USER%2522%253A%2522%2522%252C%2522DB_PASSWORD%2522%253A%2522%2522%252C%2522READONLY%2522%253A%2522false%2522%252C%2522CONNECTION_TIMEOUT%2522%253A%252230%2522%252C%2522QUERY_TIMEOUT_MS%2522%253A%252230000%2522%252C%2522MAX_ROWS%2522%253A%252210000%2522%252C%2522TRUST_SERVER_CERTIFICATE%2522%253A%2522false%2522%252C%2522MCP_TRANSPORT%2522%253A%2522stdio%2522%252C%2522MCP_HTTP_HOST%2522%253A%2522127.0.0.1%2522%252C%2522MCP_HTTP_PORT%2522%253A%25223333%2522%252C%2522MCP_BASE_URL%2522%253A%2522%2522%252C%2522ENABLE_DDL%2522%253A%2522false%2522%252C%2522MAX_WRITE_ROWS%2522%253A%2522100%2522%252C%2522REQUIRE_WRITE_PREVIEW%2522%253A%2522true%2522%257D%257D)
 
 > ⚠️ **EXPERIMENTAL USE ONLY** — This MCP Server is provided for educational and experimental purposes. It is NOT intended for production use. Use appropriate security measures and test thoroughly before any deployment.
 
@@ -32,7 +32,7 @@ AI: *queries your MSSQL database and returns the results in plain English*
 - **Remote transport support** — Run locally over `stdio` or remotely over Streamable HTTP
 - **Multi-database support** — Connect to multiple databases on the same server
 - **Read-only mode** — Restrict to inspection, search, read, and explain tools for safer environments
-- **Secure by default** — WHERE clauses required for updates/deletes; SQL injection safeguards for reads; DDL disabled unless explicitly enabled
+- **Secure by default** — WHERE clauses required for updates/deletes; SQL injection safeguards for reads; DDL tools off unless `ENABLE_DDL=true`
 
 ## Supported AI Clients
 
@@ -47,7 +47,7 @@ AI: *queries your MSSQL database and returns the results in plain English*
 
 Click **Add to Cursor** or **Install in VS Code** above to add the MCP server—no cloning required; it runs via `npx`.
 
-**Cursor** opens a dedicated install page that lists env vars you can edit before saving (similar to a short form).
+**Cursor** opens a dedicated install page that lists env vars you can edit before saving (similar to a short form). The **Add to Cursor** preset includes every variable from the table below (connection, timeouts, **`ENABLE_DDL`** defaulting to **`false`**, write caps, **`MCP_TRANSPORT`** / HTTP settings, **`MCP_BASE_URL`**, etc.); set **`ENABLE_DDL`** to **`true`** there if you want schema tools.
 
 **VS Code** only applies the JSON embedded in the `vscode:mcp/install` link: you get static placeholder values, not an interactive database wizard. To be prompted for host, database, and credentials when the server starts, add [`inputs`](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration#_input-variables-for-sensitive-data) to `.vscode/mcp.json` as in the **Prompted inputs** example under **VS Code (`mcp.json`)** below.
 
@@ -96,7 +96,7 @@ npm run build
 | `MCP_HTTP_HOST`            | No       | Bind host for Streamable HTTP mode (default: `127.0.0.1`)                            |
 | `MCP_HTTP_PORT`            | No       | Bind port for Streamable HTTP mode (default: `3333`)                                 |
 | `MCP_BASE_URL`             | No       | Optional externally visible base URL for remote deployments                          |
-| `ENABLE_DDL`               | No       | `"true"` to enable `create_table`, `create_index`, and `drop_table` (default: `false`) |
+| `ENABLE_DDL`               | No       | `"true"` enables `create_table`, `create_index`, and `drop_table` (default: `false`) |
 | `MAX_WRITE_ROWS`           | No       | Maximum rows a single write tool may affect before it is blocked (default: `100`)    |
 | `REQUIRE_WRITE_PREVIEW`    | No       | `"true"` to require confirmation before destructive tools (default: `"true"`)        |
 
@@ -336,6 +336,7 @@ Release notes: [CHANGELOG.md](https://github.com/eamonboyle/mssql-mcp/blob/main/
 - **Read-only mode** — Set `READONLY: "true"` when you only need queries.
 - **WHERE clauses** — Update and delete operations require explicit WHERE clauses to reduce accidental full-table changes.
 - **SQL injection** — The server validates and restricts dangerous SQL patterns.
+- **DDL tools** — Disabled by default (`ENABLE_DDL` unset or `false`). Set `ENABLE_DDL=true` only if the assistant should create/drop tables or indexes.
 
 ## Contributing
 
