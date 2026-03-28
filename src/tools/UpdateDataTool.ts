@@ -1,3 +1,4 @@
+import { getMaxWriteRows } from "../config.js";
 import { getSqlRequest } from "../db.js";
 import { buildQualifiedName, quoteIdentifier } from "../sql.js";
 import { buildParameterizedWhereClause, type SqlFilter } from "../writeSafety.js";
@@ -45,7 +46,11 @@ export class UpdateDataTool {
       );
 
       query = `UPDATE ${buildQualifiedName(tableName, schemaName)} SET ${setClause} WHERE ${whereClause}`;
-      const result = await request.query(query);
+      const maxRows = getMaxWriteRows();
+      request.input("mcp_rowcap", maxRows);
+      const result = await request.query(
+        `SET ROWCOUNT @mcp_rowcap;\n${query}\nSET ROWCOUNT 0;`
+      );
 
       return {
         success: true,

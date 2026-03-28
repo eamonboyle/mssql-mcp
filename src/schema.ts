@@ -369,7 +369,9 @@ export async function listForeignKeys(databaseName?: string, schemaName?: string
     request.input("schemaName", sql.NVarChar, schemaName);
   }
 
-  const schemaFilter = schemaName ? "AND ps.name = @schemaName" : "";
+  const schemaFilter = schemaName
+    ? "AND (ps.name = @schemaName OR rs.name = @schemaName)"
+    : "";
   const result = await request.query(`
     SELECT
       fk.name AS foreignKeyName,

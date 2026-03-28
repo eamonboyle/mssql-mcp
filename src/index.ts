@@ -29,22 +29,23 @@ import { registerPrompts } from "./promptRegistry.js";
 import { registerResources } from "./resourceRegistry.js";
 import { ServerState } from "./serverState.js";
 import { getAvailableTools } from "./toolRegistry.js";
+import { fingerprintForWriteTool } from "./writePreviewGrant.js";
+import { writePreviewGrantStore } from "./writePreviewGrantStore.js";
 import { previewFilteredRows } from "./writePreview.js";
 
 const SERVER_VERSION = "1.3.0";
 const SERVER_NAME = "mssql-mcp-server";
-const state = new ServerState();
 
 function createInstructions(isReadOnly: boolean) {
   const baseInstructions =
-    "Inspect schema first with list_objects, list_table, describe_object, or describe_table. Prefer read_data, search_data, analyze_table, describe_relationships, and explain_query for safe analysis. Use preview_update or preview_delete before any destructive action.";
+    "Inspect schema first with list_objects, list_table, describe_object, or describe_table. Prefer read_data, search_data, analyze_table, describe_relationships, and explain_query for safe analysis. For update_data and delete_data, run preview_update or preview_delete first, then pass the returned previewToken with confirmed=true when REQUIRE_WRITE_PREVIEW is enabled (default).";
   const readOnlyInstructions =
     " This server is READONLY: write and DDL tools are disabled. Never use sqlcmd, SSMS, other DB CLI tools, or terminal scripts to bypass the MCP safety model.";
 
   return isReadOnly ? baseInstructions + readOnlyInstructions : baseInstructions;
 }
 
-function createServerInstance() {
+function createServerInstance(state: ServerState) {
   const isReadOnly = process.env.READONLY === "true";
   const allowedDatabases = getAllowedDatabases();
   const availableTools = getAvailableTools(isReadOnly);
@@ -103,51 +104,75 @@ function createServerInstance() {
             : {};
 
         if (definition.requiresConfirmation && requestArgs.confirmed !== true) {
-          if (isWritePreviewRequired()) {
-            try {
-              const elicited = await server.server.elicitInput({
-                mode: "form",
-                message: `Confirm ${definition.tool.name} after reviewing its preview and impact.`,
-                requestedSchema: {
-                  type: "object",
-                  properties: {
-                    confirmed: {
-                      type: "boolean",
-                      title: "Confirmed",
-                      description:
-                        "I reviewed the preview and want to proceed with this operation.",
-                    },
+          try {
+            const elicited = await server.server.elicitInput({
+              mode: "form",
+              message: `Confirm ${definition.tool.name} after reviewing its preview and impact.`,
+              requestedSchema: {
+                type: "object",
+                properties: {
+                  confirmed: {
+                    type: "boolean",
+                    title: "Confirmed",
+                    description:
+                      "I reviewed the preview and want to proceed with this operation.",
                   },
-                  required: ["confirmed"],
                 },
-              });
+                required: ["confirmed"],
+              },
+            });
 
-              if (elicited.action !== "accept" || !elicited.content?.confirmed) {
+            if (elicited.action !== "accept" || !elicited.content?.confirmed) {
+              if (definition.writePreviewTool && isWritePreviewRequired()) {
                 return createToolResult({
                   version: 1,
                   success: false,
-                  message: definition.writePreviewTool
-                    ? `Confirmation required. Use ${definition.writePreviewTool} first, then retry with confirmed=true.`
-                    : "Confirmation required. Retry with confirmed=true after reviewing the operation.",
-                  error: {
-                    code: "PREVIEW_REQUIRED",
-                  },
+                  message: `Confirmation canceled. Call ${definition.writePreviewTool}, then run ${definition.tool.name} with the returned previewToken and confirmed=true.`,
+                  error: { code: "PREVIEW_REQUIRED" },
                 });
               }
-
-              requestArgs.confirmed = true;
-            } catch {
+              if (definition.writePreviewTool) {
+                return createToolResult({
+                  version: 1,
+                  success: false,
+                  message: `Confirmation canceled. Retry with confirmed=true after reviewing ${definition.writePreviewTool}.`,
+                  error: { code: "CONFIRMATION_REQUIRED" },
+                });
+              }
               return createToolResult({
                 version: 1,
                 success: false,
-                message: definition.writePreviewTool
-                  ? `Confirmation required. Use ${definition.writePreviewTool} first, then retry with confirmed=true.`
-                  : "Confirmation required. Retry with confirmed=true after reviewing the operation.",
-                error: {
-                  code: "PREVIEW_REQUIRED",
-                },
+                message:
+                  "Confirmation canceled. Retry with confirmed=true after reviewing the operation.",
+                error: { code: "CONFIRMATION_REQUIRED" },
               });
             }
+
+            requestArgs.confirmed = true;
+          } catch {
+            if (definition.writePreviewTool && isWritePreviewRequired()) {
+              return createToolResult({
+                version: 1,
+                success: false,
+                message: `Interactive confirmation is unavailable. Call ${definition.writePreviewTool}, then run ${definition.tool.name} with previewToken and confirmed=true.`,
+                error: { code: "PREVIEW_REQUIRED" },
+              });
+            }
+            if (definition.writePreviewTool) {
+              return createToolResult({
+                version: 1,
+                success: false,
+                message: `Interactive confirmation is unavailable. Retry with confirmed=true after reviewing ${definition.writePreviewTool}.`,
+                error: { code: "CONFIRMATION_REQUIRED" },
+              });
+            }
+            return createToolResult({
+              version: 1,
+              success: false,
+              message:
+                "Interactive confirmation is unavailable. Retry with confirmed=true after reviewing the operation.",
+              error: { code: "CONFIRMATION_REQUIRED" },
+            });
           }
         }
 
@@ -196,6 +221,25 @@ function createServerInstance() {
               },
             });
           }
+
+          if (isWritePreviewRequired()) {
+            const writeName = definition.tool.name as "update_data" | "delete_data";
+            const fingerprint = fingerprintForWriteTool(writeName, requestArgs);
+            const previewToken =
+              typeof requestArgs.previewToken === "string" ? requestArgs.previewToken.trim() : "";
+            if (!writePreviewGrantStore.consume(previewToken, fingerprint, writeName)) {
+              return createToolResult({
+                version: 1,
+                success: false,
+                message: `Invalid or expired write preview token. Call ${
+                  writeName === "update_data" ? "preview_update" : "preview_delete"
+                } with the same table, filters${
+                  writeName === "update_data" ? ", and updates" : ""
+                }, then pass the returned previewToken with confirmed=true.`,
+                error: { code: "PREVIEW_TOKEN_INVALID" },
+              });
+            }
+          }
         }
 
         if (definition.tool.name === "insert_data") {
@@ -231,6 +275,28 @@ function createServerInstance() {
         }
 
         const rawResult = await definition.tool.run(requestArgs);
+        if (
+          (definition.tool.name === "preview_update" ||
+            definition.tool.name === "preview_delete") &&
+          isWritePreviewRequired() &&
+          typeof rawResult === "object" &&
+          rawResult !== null &&
+          (rawResult as { success?: boolean }).success === true
+        ) {
+          const fingerprint = fingerprintForWriteTool(
+            definition.tool.name,
+            requestArgs
+          );
+          const writeTool =
+            definition.tool.name === "preview_update" ? "update_data" : "delete_data";
+          const previewToken = writePreviewGrantStore.issue(fingerprint, writeTool);
+          const withData = rawResult as { data?: unknown };
+          if (typeof withData.data === "object" && withData.data !== null && !Array.isArray(withData.data)) {
+            withData.data = { ...(withData.data as object), previewToken };
+          } else {
+            withData.data = { preview: withData.data, previewToken };
+          }
+        }
         const payload = normalizeToolResult(
           rawResult,
           `${definition.tool.name} completed.`
@@ -365,7 +431,7 @@ async function readRequestBody(req: IncomingMessage) {
 }
 
 async function handleHttpRequest(req: IncomingMessage, res: ServerResponse) {
-  const server = createServerInstance();
+  const server = createServerInstance(new ServerState());
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
   });
@@ -397,7 +463,7 @@ async function handleHttpRequest(req: IncomingMessage, res: ServerResponse) {
 }
 
 async function runStdioServer() {
-  const server = createServerInstance();
+  const server = createServerInstance(new ServerState());
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

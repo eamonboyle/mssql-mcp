@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildInlineDataAttachment,
+  classifyToolErrorCode,
   createToolResult,
+  normalizeToolResult,
   toToolStructuredContent,
 } from "../mcpResults.js";
 
@@ -65,6 +67,31 @@ describe("createToolResult", () => {
     }
     expect(result.structuredContent?.success).toBe(false);
     expect(result.structuredContent?.error).toEqual({ code: "X" });
+  });
+});
+
+describe("classifyToolErrorCode", () => {
+  it("prefers structured error.code when present", () => {
+    expect(
+      classifyToolErrorCode(
+        { success: false, message: "x", error: { code: "PREVIEW_TOKEN_INVALID" } },
+        "x"
+      )
+    ).toBe("PREVIEW_TOKEN_INVALID");
+  });
+});
+
+describe("normalizeToolResult", () => {
+  it("carries through structured error codes on failure", () => {
+    const payload = normalizeToolResult(
+      {
+        success: false,
+        message: "Invalid or expired write preview token.",
+        error: { code: "PREVIEW_TOKEN_INVALID" },
+      },
+      "fallback"
+    );
+    expect(payload.error?.code).toBe("PREVIEW_TOKEN_INVALID");
   });
 });
 

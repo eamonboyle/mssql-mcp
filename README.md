@@ -98,7 +98,7 @@ npm run build
 | `MCP_BASE_URL`             | No       | Optional externally visible base URL for remote deployments                          |
 | `ENABLE_DDL`               | No       | `"true"` enables `create_table`, `create_index`, and `drop_table` (default: `false`) |
 | `MAX_WRITE_ROWS`           | No       | Maximum rows a single write tool may affect before it is blocked (default: `100`)    |
-| `REQUIRE_WRITE_PREVIEW`    | No       | `"true"` to require confirmation before destructive tools (default: `"true"`)        |
+| `REQUIRE_WRITE_PREVIEW`    | No       | `"true"` (default): call `preview_update` / `preview_delete`, then pass the returned `previewToken` with `confirmed=true` on `update_data` / `delete_data`. Set `"false"` to skip the token (confirmation still applies). |
 
 \* Required for SQL authentication. For Windows/Integrated authentication, consult the [mssql](https://www.npmjs.com/package/mssql) package documentation.
 

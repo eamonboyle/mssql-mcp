@@ -455,6 +455,12 @@ export const toolDefinitions: ToolDefinition[] = [
             "Structured filters combined with AND to identify which rows to update."
           ),
         databaseName: databaseNameSchema.optional(),
+        previewToken: z
+          .string()
+          .optional()
+          .describe(
+            "Token from preview_update (required when REQUIRE_WRITE_PREVIEW=true, default)."
+          ),
         confirmed: z
           .boolean()
           .optional()
@@ -483,6 +489,12 @@ export const toolDefinitions: ToolDefinition[] = [
             "Structured filters combined with AND to target rows for deletion."
           ),
         databaseName: databaseNameSchema.optional(),
+        previewToken: z
+          .string()
+          .optional()
+          .describe(
+            "Token from preview_delete (required when REQUIRE_WRITE_PREVIEW=true, default)."
+          ),
         confirmed: z
           .boolean()
           .optional()

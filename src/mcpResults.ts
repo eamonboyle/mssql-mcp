@@ -49,6 +49,15 @@ export function classifyToolErrorCode(
   fallback = "TOOL_EXECUTION_FAILED"
 ): string {
   const explicit = raw.error;
+  if (
+    typeof explicit === "object" &&
+    explicit !== null &&
+    "code" in explicit &&
+    typeof (explicit as { code: unknown }).code === "string" &&
+    String((explicit as { code: string }).code).trim()
+  ) {
+    return String((explicit as { code: string }).code).trim();
+  }
   if (typeof explicit === "string" && explicit.trim()) {
     return explicit.trim();
   }
@@ -65,8 +74,16 @@ export function classifyToolErrorCode(
     return "AMBIGUOUS_TARGET";
   }
 
-  if (/preview required/i.test(message)) {
+  if (/preview required|confirmation canceled\. call preview_/i.test(message)) {
     return "PREVIEW_REQUIRED";
+  }
+
+  if (/invalid or expired previewtoken|write preview token/i.test(message)) {
+    return "PREVIEW_TOKEN_INVALID";
+  }
+
+  if (/confirmation canceled|interactive confirmation is unavailable/i.test(message)) {
+    return "CONFIRMATION_REQUIRED";
   }
 
   if (/ddl .*disabled/i.test(message)) {
