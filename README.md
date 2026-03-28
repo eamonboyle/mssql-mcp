@@ -313,8 +313,8 @@ Once configured, you can ask things like:
 | `list_objects`    | ✓         | List tables, views, procedures, functions, and triggers |
 | `describe_object` | ✓         | Describe an object definition and metadata              |
 | `insert_data`     |           | Insert rows                                             |
-| `update_data`     |           | Update rows (requires WHERE)                            |
-| `delete_data`     |           | Delete rows (requires WHERE)                            |
+| `update_data`     |           | Update rows (requires WHERE; optional `schemaName`)     |
+| `delete_data`     |           | Delete rows (requires WHERE; optional `schemaName`)     |
 | `create_table`    |           | Create tables                                           |
 | `create_index`    |           | Create indexes                                          |
 | `drop_table`      |           | Drop tables                                             |

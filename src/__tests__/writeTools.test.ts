@@ -92,6 +92,22 @@ describe("write tools", () => {
     ]);
   });
 
+  it("qualifies update target with schema when provided", async () => {
+    const tool = new UpdateDataTool();
+
+    const result = await tool.run({
+      tableName: "Users",
+      schemaName: "auth",
+      updates: { status: "active" },
+      filters: [{ column: "id", operator: "=", value: 1 }],
+    });
+
+    expect(result).toMatchObject({ success: true, rowsAffected: 1 });
+    expect(dbMockState.queryCalls[0]).toBe(
+      "UPDATE [auth].[Users] SET [status] = @update_0 WHERE [id] = @update_filter_0"
+    );
+  });
+
   it("quotes identifiers for inserts", async () => {
     const tool = new InsertDataTool();
 

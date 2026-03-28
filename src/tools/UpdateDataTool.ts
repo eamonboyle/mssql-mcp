@@ -4,6 +4,7 @@ import { buildParameterizedWhereClause, type SqlFilter } from "../writeSafety.js
 
 interface UpdateDataParams {
   tableName: string;
+  schemaName?: string;
   updates: Record<string, unknown>;
   filters: SqlFilter[];
   databaseName?: string;
@@ -17,7 +18,7 @@ export class UpdateDataTool {
   async run(params: UpdateDataParams) {
     let query: string | undefined;
     try {
-      const { tableName, updates, filters, databaseName } = params;
+      const { tableName, schemaName, updates, filters, databaseName } = params;
 
       const { request, error } = await getSqlRequest(databaseName);
       if (error) {
@@ -43,7 +44,7 @@ export class UpdateDataTool {
         "update_filter"
       );
 
-      query = `UPDATE ${buildQualifiedName(tableName)} SET ${setClause} WHERE ${whereClause}`;
+      query = `UPDATE ${buildQualifiedName(tableName, schemaName)} SET ${setClause} WHERE ${whereClause}`;
       const result = await request.query(query);
 
       return {

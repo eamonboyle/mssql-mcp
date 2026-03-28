@@ -443,6 +443,9 @@ export const toolDefinitions: ToolDefinition[] = [
     inputSchema: z
       .object({
         tableName: tableNameSchema.describe("Name of the table to update"),
+        schemaName: schemaNameSchema
+          .optional()
+          .describe("Schema containing the table (optional)."),
         updates: recordSchema.describe(
           "Key-value pairs of columns to update. Example: { status: 'active' }"
         ),

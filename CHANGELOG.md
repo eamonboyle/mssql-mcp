@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-memory `ServerState` for caching explain-plan and preview-related payloads across tool calls.
 - Tests covering analyze-table behavior, config parsing, MCP result shapes, resources, and tool registration.
 
+### Fixed
+
+- `update_data` accepts optional `schemaName`, matching `preview_update` / `delete_data` so previews and writes target the same object.
+
 ### Changed
 
 - Server instructions emphasize `analyze_table`, `describe_relationships`, and running `preview_update` / `preview_delete` before destructive work.
