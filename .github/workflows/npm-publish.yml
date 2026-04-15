@@ -40,7 +40,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Use npm CLI with trusted publishing support
-        run: npm install -g "npm@>=11.5.1"
+        run: npm install -g "npm@11"
 
       - name: Install dependencies
         run: npm ci
@@ -54,7 +54,23 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Check if version is already published
+        id: publish_check
+        run: |
+          set -euo pipefail
+          NAME=$(jq -r '.name' package.json)
+          VERSION=$(jq -r '.version' package.json)
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          if npm view "${NAME}@${VERSION}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "publish=false" >> "${GITHUB_OUTPUT}"
+            echo "Skipping publish: ${NAME}@${VERSION} is already on the registry."
+          else
+            echo "publish=true" >> "${GITHUB_OUTPUT}"
+            echo "Will publish ${NAME}@${VERSION} (not found on registry)."
+          fi
+
       - name: Publish to npm
+        if: steps.publish_check.outputs.publish == 'true'
         # OIDC via id-token: write; npm exchanges the GitHub ID token automatically.
         # Provenance is generated automatically for public repos (npm docs).
         run: npm publish
