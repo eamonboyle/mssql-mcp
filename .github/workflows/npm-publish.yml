@@ -39,9 +39,6 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
-      - name: Use npm CLI with trusted publishing support
-        run: npm install -g "npm@11"
-
       - name: Install dependencies
         run: npm ci
 
