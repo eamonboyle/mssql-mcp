@@ -70,4 +70,4 @@ jobs:
         if: steps.publish_check.outputs.publish == 'true'
         # OIDC via id-token: write; npm exchanges the GitHub ID token automatically.
         # Provenance is generated automatically for public repos (npm docs).
-        run: npm publish
+        run: npm publish --access public

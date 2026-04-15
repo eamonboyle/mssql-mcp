@@ -22,7 +22,8 @@
     "url": "https://github.com/eamonboyle/mssql-mcp/issues"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "main": "dist/index.js",
   "bin": {
