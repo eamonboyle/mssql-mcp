@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-04-16
+
+### Fixed
+
+- `read_data`: log validated-query audit line to **stderr** only so MCP **stdio** transport is not corrupted by non-JSON stdout (fixes clients reporting `Unexpected token 'E', "Executing "...`).
+
 ## [1.3.0] - 2026-03-28
 
 ### Added
