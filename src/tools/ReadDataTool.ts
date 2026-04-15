@@ -75,8 +75,8 @@ export class ReadDataTool {
         };
       }
 
-      // Log the query for audit purposes (in production, consider more secure logging)
-      console.log(
+      // Audit on stderr only — stdout must stay JSON-RPC for MCP stdio transport.
+      console.error(
         `Executing validated SELECT query: ${query.substring(0, 200)}${query.length > 200 ? "..." : ""}`
       );
 
