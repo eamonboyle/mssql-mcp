@@ -1,10 +1,18 @@
 # Publishes to npm when changes land on main (for example after a PR is merged).
 # Uses npm Trusted Publishing (OIDC) — no long-lived NPM_TOKEN in GitHub secrets.
 #
+# Trusted publishing requires npm CLI >= 11.5.1 and Node >= 22.14.0 (npm docs).
+# Use Node 24 in CI so the bundled npm always supports OIDC; older npm versions
+# can fail OIDC and surface a misleading 404 on `npm publish`.
+#
 # One-time setup (package owner on npmjs.com):
-# 1. Package → Settings → Trusted publishing → GitHub Actions
+# 1. Create the package on npm (same name as package.json) if it does not exist yet.
+# 2. Package → Settings → Trusted publishing → GitHub Actions
 #    - Repository and workflow file name must match exactly: npm-publish.yml
-# 2. Settings → Publishing access → enable "Require 2FA and disallow tokens" (recommended)
+#    - If this job sets `environment: <name>` on npmjs.com, the Environment name
+#      field must match exactly; leave it blank only when the workflow has no
+#      `environment:` key on the publish job.
+# 3. Settings → Publishing access → enable "Require 2FA and disallow tokens" (recommended)
 #
 # Optional GitHub hardening: add `environment: npm` to the publish job and create
 # an "npm" environment (Settings → Environments) with required reviewers so each
@@ -34,10 +42,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          # Trusted publishing requires Node.js >= 22.14.0 (npm docs)
-          node-version: "22"
+          # Align with npm Trusted Publishing docs (bundled npm supports OIDC).
+          node-version: "24"
           cache: npm
           registry-url: https://registry.npmjs.org
+
+      - name: Print Node and npm versions
+        run: |
+          node --version
+          npm --version
 
       - name: Install dependencies
         run: npm ci
