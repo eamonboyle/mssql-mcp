@@ -21,6 +21,9 @@
   "bugs": {
     "url": "https://github.com/eamonboyle/mssql-mcp/issues"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "bin": {
     "mssql-mcp": "dist/index.js"
