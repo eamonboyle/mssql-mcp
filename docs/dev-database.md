@@ -54,3 +54,29 @@ Once the server is running against this DB, try:
 - `read_data` / `search_data` on `Customers`
 - `preview_update` then confirmed `update_data` (write preview flow)
 - Switch `databaseName` to `ReportingDB` for multi-DB coverage
+
+## Full tool E2E harness
+
+Run every registered MCP tool against the Docker database in one shot:
+
+```bash
+cp .env.example .env    # if needed
+npm run test:e2e
+```
+
+This script (`scripts/e2e-mcp-tools.sh`):
+
+1. Ensures `mssql-mcp-dev` is running (`npm run db:up` if not)
+2. Builds the project
+3. Starts a dedicated HTTP MCP server with `ENABLE_DDL=true` (DDL tools need this)
+4. Runs `scripts/e2e-mcp-tools.mjs`, which calls each tool and prints PASS/FAIL per tool
+5. Stops the server on exit
+
+To run only the Node harness (server already running on port 3333):
+
+```bash
+MCP_TRANSPORT=http ENABLE_DDL=true npm start   # separate terminal
+MCP_E2E_BASE_URL=http://127.0.0.1:3333/mcp node scripts/e2e-mcp-tools.mjs
+```
+
+See `AGENTS.md` for Cursor Cloud / Docker-in-Docker notes.

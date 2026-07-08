@@ -41,7 +41,8 @@
     "db:up": "bash scripts/mssql-up.sh",
     "db:down": "bash scripts/mssql-down.sh",
     "db:seed": "bash scripts/mssql-seed.sh",
-    "db:reset": "bash scripts/mssql-down.sh --volumes && bash scripts/mssql-up.sh"
+    "db:reset": "bash scripts/mssql-down.sh --volumes && bash scripts/mssql-up.sh",
+    "test:e2e": "bash scripts/e2e-mcp-tools.sh"
   },
   "files": [
     "dist"
