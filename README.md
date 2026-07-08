@@ -79,6 +79,8 @@ npm install
 npm run build
 ```
 
+To exercise MCP tools against a real database locally, start the seeded Docker SQL Server (`npm run db:up`). See [`docs/dev-database.md`](docs/dev-database.md).
+
 ## Configuration
 
 ### Environment Variables
