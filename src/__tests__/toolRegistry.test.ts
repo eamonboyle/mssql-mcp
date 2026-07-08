@@ -128,6 +128,14 @@ describe("toolRegistry write schemas", () => {
         tableName: "Users",
         filters: [{ column: "id", operator: "=", value: 1 }],
         offset: 10,
+      }).success
+    ).toBe(false);
+
+    expect(
+      schema.safeParse({
+        tableName: "Users",
+        filters: [{ column: "id", operator: "=", value: 1 }],
+        offset: 10,
         orderBy: [{ column: "id", direction: "ASC" }],
       }).success
     ).toBe(true);

@@ -1,7 +1,24 @@
-import { getDatabaseSchemaSummary } from "../schema.js";
+import {
+  getDatabaseSchemaSummary,
+  type SchemaSummaryResult,
+} from "../schema.js";
 
 interface SummarizeSchemaParams {
   databaseName?: string;
+}
+
+export function formatSchemaSummaryText(data: SchemaSummaryResult): string {
+  const typeSummary = data.objectCounts
+    .map((row) => `${row.objectType}: ${row.objectCount}`)
+    .join(", ");
+  const schemaSummary = data.schemaCounts
+    .slice(0, 10)
+    .map((row) => `${row.schemaName}: ${row.objectCount}`)
+    .join(", ");
+
+  return `Schema summary: ${typeSummary || "no typed objects"}.${
+    schemaSummary ? ` Top schemas: ${schemaSummary}.` : ""
+  }`;
 }
 
 export class SummarizeSchemaTool {
@@ -12,14 +29,8 @@ export class SummarizeSchemaTool {
   async run(params: SummarizeSchemaParams = {}) {
     try {
       const data = await getDatabaseSchemaSummary(params.databaseName);
-      const objectCounts = Array.isArray(data.objectCounts)
-        ? data.objectCounts
-        : [];
-      const schemaCounts = Array.isArray(data.schemaCounts)
-        ? data.schemaCounts
-        : [];
 
-      if (objectCounts.length === 0 && schemaCounts.length === 0) {
+      if (data.objectCounts.length === 0 && data.schemaCounts.length === 0) {
         return {
           success: true,
           message:
@@ -28,25 +39,9 @@ export class SummarizeSchemaTool {
         };
       }
 
-      const typeSummary = objectCounts
-        .map(
-          (row: { objectType?: unknown; objectCount?: unknown }) =>
-            `${String(row.objectType ?? "unknown")}: ${String(row.objectCount ?? 0)}`
-        )
-        .join(", ");
-      const schemaSummary = schemaCounts
-        .slice(0, 10)
-        .map(
-          (row: { schemaName?: unknown; objectCount?: unknown }) =>
-            `${String(row.schemaName ?? "unknown")}: ${String(row.objectCount ?? 0)}`
-        )
-        .join(", ");
-
       return {
         success: true,
-        message: `Schema summary: ${typeSummary || "no typed objects"}.${
-          schemaSummary ? ` Top schemas: ${schemaSummary}.` : ""
-        }`,
+        message: formatSchemaSummaryText(data),
         data,
       };
     } catch (error) {

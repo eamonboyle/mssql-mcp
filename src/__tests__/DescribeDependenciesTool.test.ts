@@ -32,7 +32,7 @@ describe("DescribeDependenciesTool", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.message).toContain("Found 1 dependent object");
+    expect(result.message).toContain("Found 1 dependent object(s) for 'dbo.Users'");
     expect(describeObjectDependenciesMock).toHaveBeenCalledWith(
       "Users",
       undefined,

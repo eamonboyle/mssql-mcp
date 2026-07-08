@@ -98,30 +98,4 @@ describe("FilterDataTool", () => {
       { name: "filter_limit", value: 5 },
     ]);
   });
-
-  it("requires orderBy when offset is greater than zero", async () => {
-    const tool = new FilterDataTool();
-
-    const result = await tool.run({
-      tableName: "Users",
-      filters: [{ column: "id", operator: "=", value: 1 }],
-      offset: 5,
-    });
-
-    expect(result.success).toBe(false);
-    expect(String(result.message)).toContain("orderBy");
-    expect(dbMockState.queryCalls).toHaveLength(0);
-  });
-
-  it("rejects empty filters", async () => {
-    const tool = new FilterDataTool();
-
-    const result = await tool.run({
-      tableName: "Users",
-      filters: [],
-    });
-
-    expect(result.success).toBe(false);
-    expect(String(result.message)).toContain("At least one filter");
-  });
 });

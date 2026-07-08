@@ -87,6 +87,16 @@ const filterSchema = z
     }
   });
 
+const orderByEntrySchema = z
+  .object({
+    column: z.string().describe("Column name to order by."),
+    direction: z
+      .enum(["ASC", "DESC"])
+      .optional()
+      .describe("Sort direction (default ASC)."),
+  })
+  .strict();
+
 const listTableTool = new ListTableTool();
 const describeTableTool = new DescribeTableTool();
 const listObjectsTool = new ListObjectsTool();
@@ -161,6 +171,57 @@ const objectNameSchema = completable(
       );
   }
 );
+
+const filterDataInputSchema = z
+  .object({
+    tableName: tableNameSchema.describe("Name of the table to filter"),
+    schemaName: schemaNameSchema
+      .optional()
+      .describe("Schema containing the table (optional)."),
+    filters: z
+      .array(filterSchema)
+      .min(1)
+      .describe(
+        "Structured filters combined with AND. Same operators as update/delete."
+      ),
+    columns: z
+      .array(z.string())
+      .optional()
+      .describe("Optional columns to return. Omit to select all columns (*)."),
+    orderBy: z
+      .array(orderByEntrySchema)
+      .optional()
+      .describe(
+        "Optional ORDER BY clauses. Required when offset is greater than 0."
+      ),
+    limit: z
+      .number()
+      .optional()
+      .describe(
+        "Maximum number of rows to return (optional). Clamped to MAX_ROWS."
+      ),
+    offset: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe(
+        "Number of rows to skip (optional). Requires orderBy when greater than 0."
+      ),
+    databaseName: databaseNameSchema.optional(),
+  })
+  .strict()
+  .superRefine((input, ctx) => {
+    const offset = input.offset ?? 0;
+    if (offset > 0 && (!input.orderBy || input.orderBy.length === 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["orderBy"],
+        message:
+          "When offset is greater than 0, orderBy is required (SQL Server OFFSET/FETCH).",
+      });
+    }
+  });
 
 export const toolDefinitions: ToolDefinition[] = [
   {
@@ -398,57 +459,7 @@ export const toolDefinitions: ToolDefinition[] = [
     annotations: {
       readOnlyHint: true,
     },
-    inputSchema: z
-      .object({
-        tableName: tableNameSchema.describe("Name of the table to filter"),
-        schemaName: schemaNameSchema
-          .optional()
-          .describe("Schema containing the table (optional)."),
-        filters: z
-          .array(filterSchema)
-          .min(1)
-          .describe(
-            "Structured filters combined with AND. Same operators as update/delete."
-          ),
-        columns: z
-          .array(z.string())
-          .optional()
-          .describe(
-            "Optional columns to return. Omit to select all columns (*)."
-          ),
-        orderBy: z
-          .array(
-            z
-              .object({
-                column: z.string().describe("Column name to order by."),
-                direction: z
-                  .enum(["ASC", "DESC"])
-                  .optional()
-                  .describe("Sort direction (default ASC)."),
-              })
-              .strict()
-          )
-          .optional()
-          .describe(
-            "Optional ORDER BY clauses. Required when offset is greater than 0."
-          ),
-        limit: z
-          .number()
-          .optional()
-          .describe(
-            "Maximum number of rows to return (optional). Clamped to MAX_ROWS."
-          ),
-        offset: z
-          .number()
-          .int()
-          .nonnegative()
-          .optional()
-          .describe(
-            "Number of rows to skip (optional). Requires orderBy when greater than 0."
-          ),
-        databaseName: databaseNameSchema.optional(),
-      })
-      .strict(),
+    inputSchema: filterDataInputSchema,
   },
   {
     tool: explainQueryTool,
@@ -514,9 +525,7 @@ export const toolDefinitions: ToolDefinition[] = [
     },
     inputSchema: z
       .object({
-        tableName: z
-          .string()
-          .describe("Name of the table to insert data into"),
+        tableName: tableNameSchema.describe("Name of the table to insert data into"),
         schemaName: schemaNameSchema
           .optional()
           .describe("Schema containing the table (optional)."),

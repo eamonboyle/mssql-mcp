@@ -1,6 +1,6 @@
 import { getSqlRequest } from "./db.js";
-import { buildQualifiedName } from "./sql.js";
-import { buildParameterizedWhereClause, type SqlFilter } from "./writeSafety.js";
+import { buildFilteredReadQuery } from "./filteredRead.js";
+import type { SqlFilter } from "./writeSafety.js";
 
 export interface WritePreviewResult {
   query: string;
@@ -22,14 +22,15 @@ export async function previewFilteredRows(params: {
     throw new Error(error);
   }
 
-  request.input("previewLimit", limit);
-  const whereClause = buildParameterizedWhereClause(
+  const { query, tableRef, whereClause } = buildFilteredReadQuery(request, {
+    tableName,
+    schemaName,
     filters,
-    (name, value) => request.input(name, value),
-    "preview_filter"
-  );
-  const tableRef = buildQualifiedName(tableName, schemaName);
-  const query = `SELECT TOP (@previewLimit) * FROM ${tableRef} WHERE ${whereClause}`;
+    limit,
+    offset: 0,
+    filterParamPrefix: "preview_filter",
+    limitParameterName: "previewLimit",
+  });
   const countQuery = `SELECT COUNT(*) AS affectedRowCount FROM ${tableRef} WHERE ${whereClause}`;
 
   const result = await request.query(`

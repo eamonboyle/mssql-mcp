@@ -26,6 +26,6 @@ Default connection (matches `.env.example`): `SERVER_NAME=127.0.0.1`, `DATABASE_
 ### Non-obvious gotchas
 - Default transport is **stdio** (launched by an MCP client). For a standalone HTTP server set `MCP_TRANSPORT=http` (binds `MCP_HTTP_HOST:MCP_HTTP_PORT`, default `127.0.0.1:3333`). The HTTP transport is stateless; POST JSON-RPC with header `Accept: application/json, text/event-stream` (responses come back as SSE `event: message`).
 - Write tools (`insert_data`, `update_data`, `delete_data`) require confirmation. Non-elicitation clients must pass `confirmed: true` in the tool arguments. `update_data`/`delete_data` additionally need a `previewToken` from `preview_update`/`preview_delete` when `REQUIRE_WRITE_PREVIEW` is true (the default).
-- `insert_data` takes `tableName` as a single quoted identifier (no `schemaName` param and no `schema.table` dotted string — a dotted value becomes one bracketed identifier and fails). It relies on the login's default schema (`dbo` for `sa`).
+- `insert_data` accepts optional `schemaName` (same as other write tools). Use `tableName` for the table only — not `schema.table` as a dotted string.
 - DDL tools (`create_table`, `create_index`, `drop_table`) are hidden/disabled unless `ENABLE_DDL=true`.
 - `src/db.ts` forces `encrypt: false` and effectively `trustServerCertificate: true`, so plain local SQL Server connections work without TLS setup.

@@ -27,10 +27,11 @@ export class DescribeDependenciesTool {
         schemaName
       );
 
+      const qualified = schemaName
+        ? `${schemaName}.${objectName}`
+        : objectName;
+
       if (rows.length === 0) {
-        const qualified = schemaName
-          ? `${schemaName}.${objectName}`
-          : objectName;
         return {
           success: true,
           message: `No dependencies found for '${qualified}'. The object may not exist, may have no dependents, or dependency metadata may be incomplete for dynamic SQL.`,
@@ -40,7 +41,7 @@ export class DescribeDependenciesTool {
 
       return {
         success: true,
-        message: `Found ${rows.length} dependent object(s) for '${objectName}'.`,
+        message: `Found ${rows.length} dependent object(s) for '${qualified}'.`,
         data: rows,
       };
     } catch (error) {
