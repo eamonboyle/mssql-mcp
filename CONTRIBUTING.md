@@ -16,8 +16,9 @@ Thank you for your interest in contributing! This document provides guidelines f
 - **Test**: `npm test` (or `npm run test:watch` for watch mode)
 - **Lint**: `npm run lint`
 - **Format**: `npm run format` (Prettier)
+- **Local SQL Server**: `npm run db:up` (Docker Compose + seed). See [`docs/dev-database.md`](docs/dev-database.md).
 
-The project uses TypeScript. Source files are in `src/`, compiled output goes to `dist/`.
+The project uses TypeScript. Source files are in `src/`, compiled output goes to `dist/`. Unit tests mock the database; use `npm run db:up` when you need a live SQL Server to exercise MCP tools.
 
 ## Submitting Changes
 
