@@ -314,7 +314,24 @@ export function listConfiguredDatabases() {
   }));
 }
 
-export async function getDatabaseSchemaSummary(databaseName?: string) {
+export type SchemaObjectCountRow = {
+  objectType: string;
+  objectCount: number;
+};
+
+export type SchemaCountRow = {
+  schemaName: string;
+  objectCount: number;
+};
+
+export type SchemaSummaryResult = {
+  objectCounts: SchemaObjectCountRow[];
+  schemaCounts: SchemaCountRow[];
+};
+
+export async function getDatabaseSchemaSummary(
+  databaseName?: string
+): Promise<SchemaSummaryResult> {
   const { request, error } = await getSqlRequest(databaseName);
   if (error) {
     throw new Error(error);
@@ -356,23 +373,8 @@ export async function getDatabaseSchemaSummary(databaseName?: string) {
   return {
     objectCounts: recordsets[0] ?? [],
     schemaCounts: recordsets[1] ?? [],
-  };
+  } satisfies SchemaSummaryResult;
 }
-
-export type SchemaObjectCountRow = {
-  objectType: string;
-  objectCount: number;
-};
-
-export type SchemaCountRow = {
-  schemaName: string;
-  objectCount: number;
-};
-
-export type SchemaSummaryResult = {
-  objectCounts: SchemaObjectCountRow[];
-  schemaCounts: SchemaCountRow[];
-};
 
 export async function listForeignKeys(databaseName?: string, schemaName?: string) {
   const { request, error } = await getSqlRequest(databaseName);

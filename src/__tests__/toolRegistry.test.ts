@@ -140,4 +140,17 @@ describe("toolRegistry write schemas", () => {
       }).success
     ).toBe(true);
   });
+
+  it("rejects blank object names for object-scoped tools", () => {
+    for (const toolName of ["describe_object", "describe_dependencies"]) {
+      const schema = getToolSchema(toolName);
+      expect(
+        schema.safeParse({
+          objectName: "  ",
+          schemaName: "dbo",
+        }).success,
+        toolName
+      ).toBe(false);
+    }
+  });
 });

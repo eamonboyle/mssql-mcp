@@ -30,6 +30,7 @@ export async function previewFilteredRows(params: {
     offset: 0,
     filterParamPrefix: "preview_filter",
     limitParameterName: "previewLimit",
+    offsetParameterName: "preview_offset",
   });
   const countQuery = `SELECT COUNT(*) AS affectedRowCount FROM ${tableRef} WHERE ${whereClause}`;
 

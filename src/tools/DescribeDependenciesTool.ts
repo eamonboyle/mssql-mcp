@@ -14,12 +14,6 @@ export class DescribeDependenciesTool {
   async run(params: DescribeDependenciesParams) {
     try {
       const { objectName, schemaName, databaseName } = params;
-      if (typeof objectName !== "string" || objectName.trim() === "") {
-        return {
-          success: false,
-          message: "The 'objectName' field must be a non-empty string.",
-        };
-      }
 
       const rows = await describeObjectDependencies(
         objectName,

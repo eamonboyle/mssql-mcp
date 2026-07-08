@@ -159,7 +159,11 @@ const tableNameSchema = completable(
 );
 
 const objectNameSchema = completable(
-  z.string().describe("Object name."),
+  z
+    .string()
+    .trim()
+    .min(1, "Object name must be a non-empty string.")
+    .describe("Object name."),
   async (value, context) => {
     const databaseName = context?.arguments?.databaseName;
     const schemaName = context?.arguments?.schemaName;

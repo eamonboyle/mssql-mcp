@@ -52,13 +52,4 @@ describe("DescribeDependenciesTool", () => {
     expect(result.success).toBe(true);
     expect(result.message).toMatch(/No dependencies found for 'dbo.Orphan'/);
   });
-
-  it("rejects empty objectName", async () => {
-    const tool = new DescribeDependenciesTool();
-    const result = await tool.run({ objectName: "  " });
-
-    expect(result.success).toBe(false);
-    expect(result.message).toContain("objectName");
-    expect(describeObjectDependenciesMock).not.toHaveBeenCalled();
-  });
 });

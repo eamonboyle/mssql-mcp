@@ -1,6 +1,6 @@
 import { clampRowLimit, getDefaultSearchLimit } from "../config.js";
 import { getSqlRequest } from "../db.js";
-import { buildFilteredReadQuery } from "../filteredRead.js";
+import { buildFilteredReadQuery, type FilterOrderBy } from "../filteredRead.js";
 import type { SqlFilter } from "../writeSafety.js";
 
 interface FilterDataParams {
@@ -8,7 +8,7 @@ interface FilterDataParams {
   schemaName?: string;
   filters: SqlFilter[];
   columns?: string[];
-  orderBy?: Array<{ column: string; direction?: "ASC" | "DESC" }>;
+  orderBy?: FilterOrderBy[];
   limit?: number;
   offset?: number;
   databaseName?: string;
