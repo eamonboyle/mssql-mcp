@@ -25,7 +25,6 @@ AI: *queries your MSSQL database and returns the results in plain English*
 
 - **Natural language to SQL** — Ask questions in plain English
 - **Row-level CRUD support** — Read, insert, update, and delete rows with dedicated tools
-- **Structured filtering** — `filter_data` uses the same safe filter DSL as update/delete (no raw SQL required)
 - **Schema discovery** — Inspect tables, views, procedures, functions, and triggers; summarize counts with `summarize_schema`
 - **Dependency impact analysis** — `describe_dependencies` before drops or refactors
 - **Safer write workflows** — `preview_update` and `preview_delete` plus confirmation gating for destructive tools
@@ -304,6 +303,7 @@ Once configured, you can ask things like:
 - "List all tables in the database"
 - "Describe the schema of the customers table"
 - "List all views and procedures in the reporting database"
+- "Which tables are using the most storage?"
 - "Explain why this SELECT query is slow"
 
 ## Available Tools
@@ -316,12 +316,12 @@ Once configured, you can ask things like:
 | `list_objects`           | ✓         | List tables, views, procedures, functions, and triggers                     |
 | `describe_object`        | ✓         | Describe an object definition and metadata                                  |
 | `summarize_schema`       | ✓         | High-level object counts by type and per schema                             |
+| `list_largest_tables`    | ✓         | Rank user tables by reserved and used storage, with row counts              |
 | `list_foreign_keys`      | ✓         | List foreign key relationships                                              |
 | `describe_relationships` | ✓         | Foreign keys involving a specific table                                     |
 | `describe_dependencies`  | ✓         | Objects that depend on a given object                                       |
 | `analyze_table`          | ✓         | Row counts, storage, and indexes for a table                                |
 | `read_data`              | ✓         | Execute validated SELECT queries                                            |
-| `filter_data`            | ✓         | Structured AND filters (same DSL as writes); optional `orderBy`/`offset`    |
 | `search_data`            | ✓         | Search one or more columns with parameterized `LIKE`                        |
 | `explain_query`          | ✓         | Get an estimated execution plan for a SELECT query                          |
 | `preview_update`         | ✓         | Preview rows that would be updated; returns `previewToken` when required    |

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-07-09
+
+### Added
+
+- MCP tool: `list_largest_tables`, a read-only capacity-discovery view that ranks user tables by reserved storage and returns used storage and row counts. It supports optional schema filtering and respects `MAX_ROWS`.
+
+### Removed
+
+- `filter_data` from the public MCP tool catalog. The internal structured-filter helper remains in use by write previews, but agents now use `read_data` for all read queries.
+
 ## [1.4.1] - 2026-07-09
 
 ### Changed
