@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![npm version](https://img.shields.io/npm/v/@eamonboyle/mssql-mcp.svg)](https://www.npmjs.com/package/@eamonboyle/mssql-mcp)
-[![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
+[![Node.js 20+](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![X: @eamonyo](https://img.shields.io/badge/X-%40eamonyo-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/eamonyo)
 
 [![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=MSSQL&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBlYW1vbmJveWxlL21zc3FsLW1jcCJdLCJlbnYiOnsiU0VSVkVSX05BTUUiOiJsb2NhbGhvc3QiLCJEQVRBQkFTRV9OQU1FIjoiWW91ckRhdGFiYXNlIiwiREFUQUJBU0VTIjoiIiwiREJfVVNFUiI6IiIsIkRCX1BBU1NXT1JEIjoiIiwiUkVBRE9OTFkiOiJmYWxzZSIsIkNPTk5FQ1RJT05fVElNRU9VVCI6IjMwIiwiUVVFUllfVElNRU9VVF9NUyI6IjMwMDAwIiwiTUFYX1JPV1MiOiIxMDAwMCIsIlRSVVNUX1NFUlZFUl9DRVJUSUZJQ0FURSI6ImZhbHNlIiwiTUNQX1RSQU5TUE9SVCI6InN0ZGlvIiwiTUNQX0hUVFBfSE9TVCI6IjEyNy4wLjAuMSIsIk1DUF9IVFRQX1BPUlQiOiIzMzMzIiwiTUNQX0JBU0VfVVJMIjoiIiwiRU5BQkxFX0RETCI6ImZhbHNlIiwiTUFYX1dSSVRFX1JPV1MiOiIxMDAiLCJSRVFVSVJFX1dSSVRFX1BSRVZJRVciOiJ0cnVlIn19)
@@ -56,7 +56,7 @@ Click **Add to Cursor** or **Install in VS Code** above to add the MCP server—
 
 ### Prerequisites
 
-- **Node.js 18** or higher
+- **Node.js 20** or higher
 - SQL Server (local, Azure SQL, or remote)
 - An MCP-compatible AI client (Claude Desktop, Cursor, etc.)
 

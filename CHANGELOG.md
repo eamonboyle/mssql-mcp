@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Dependency lockfile: `npm audit fix` and semver-safe updates (e.g. `@modelcontextprotocol/sdk` 1.29.0, `zod` 4.4.3, transitive security patches). Upgraded `vitest` to 4.x to clear remaining dev-toolchain advisories (`vite`/`esbuild`).
+- Dependency lockfile: `npm audit fix` and semver-safe updates (e.g. `@modelcontextprotocol/sdk` 1.29.0, `zod` 4.4.3, transitive security patches). Upgraded `vitest` to 4.x to clear remaining dev-toolchain advisories (`vite`/`esbuild`). Minimum Node.js raised to **20** (vitest 4 / vite 8 engine requirement); CI matrix now tests Node 20 and 22.
 
 ## [1.4.0] - 2026-07-08
 
