@@ -8,6 +8,23 @@ This repo is a single Node.js/TypeScript product: the **MSSQL MCP Server** (`@ea
 - `npm run build`, `npm run lint`, `npm test` all pass with **no external services** — the unit tests mock the DB (see `src/__tests__/`). Use these for fast validation.
 - The `prepare` script runs `npm run build` automatically on `npm install`, so `dist/` exists after install.
 
+### Full MCP tool E2E (Docker + SQL required)
+After the database is up, run **`npm run test:e2e`** to exercise **every registered MCP tool** against `AppDB` / `ReportingDB` and print a per-tool PASS/FAIL report.
+
+```bash
+cp .env.example .env   # if needed
+npm run db:up          # start Docker MSSQL + seed (skip if already healthy)
+npm run test:e2e       # builds, starts HTTP server (ENABLE_DDL=true), runs all tools
+```
+
+Scripts: `scripts/e2e-mcp-tools.sh` (orchestrator) and `scripts/e2e-mcp-tools.mjs` (harness). Details: [`docs/dev-database.md`](docs/dev-database.md).
+
+**Cloud agent checklist:**
+1. Start Docker if needed (`dockerd`; use `sg docker -c '...'` when the socket requires the `docker` group).
+2. `npm run db:up` — if the volume is corrupt, `npm run db:reset`.
+3. `npm run test:e2e` — exit code 0 means all tools passed.
+4. Server log on failure: `/tmp/mssql-mcp-e2e-server.log`
+
 ### Running the server end-to-end (needs a SQL Server)
 Use the repo's Docker Compose stack (seeded `AppDB` + `ReportingDB`). Details: [`docs/dev-database.md`](docs/dev-database.md).
 
@@ -26,6 +43,6 @@ Default connection (matches `.env.example`): `SERVER_NAME=127.0.0.1`, `DATABASE_
 ### Non-obvious gotchas
 - Default transport is **stdio** (launched by an MCP client). For a standalone HTTP server set `MCP_TRANSPORT=http` (binds `MCP_HTTP_HOST:MCP_HTTP_PORT`, default `127.0.0.1:3333`). The HTTP transport is stateless; POST JSON-RPC with header `Accept: application/json, text/event-stream` (responses come back as SSE `event: message`).
 - Write tools (`insert_data`, `update_data`, `delete_data`) require confirmation. Non-elicitation clients must pass `confirmed: true` in the tool arguments. `update_data`/`delete_data` additionally need a `previewToken` from `preview_update`/`preview_delete` when `REQUIRE_WRITE_PREVIEW` is true (the default).
-- `insert_data` takes `tableName` as a single quoted identifier (no `schemaName` param and no `schema.table` dotted string — a dotted value becomes one bracketed identifier and fails). It relies on the login's default schema (`dbo` for `sa`).
+- `insert_data` accepts optional `schemaName` (same as other write tools). Use `tableName` for the table only — not `schema.table` as a dotted string.
 - DDL tools (`create_table`, `create_index`, `drop_table`) are hidden/disabled unless `ENABLE_DDL=true`.
 - `src/db.ts` forces `encrypt: false` and effectively `trustServerCertificate: true`, so plain local SQL Server connections work without TLS setup.
