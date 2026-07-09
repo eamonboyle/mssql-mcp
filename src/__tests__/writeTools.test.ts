@@ -38,6 +38,7 @@ vi.mock("../db.js", () => ({
 import { CreateIndexTool } from "../tools/CreateIndexTool.js";
 import { CreateTableTool } from "../tools/CreateTableTool.js";
 import { DeleteDataTool } from "../tools/DeleteDataTool.js";
+import { DropTableTool } from "../tools/DropTableTool.js";
 import { InsertDataTool } from "../tools/InsertDataTool.js";
 import { UpdateDataTool } from "../tools/UpdateDataTool.js";
 
@@ -126,6 +127,37 @@ describe("write tools", () => {
     expect(dbMockState.queryCalls[0]).toBe(
       "INSERT INTO [Order Details] ([Customer Name], [Order ID]) VALUES (@value0, @value1)"
     );
+  });
+
+  it("qualifies insert target with schema when provided", async () => {
+    const tool = new InsertDataTool();
+
+    const result = await tool.run({
+      tableName: "Users",
+      schemaName: "auth",
+      data: { name: "Ada" },
+    });
+
+    expect(result).toMatchObject({ success: true, recordsInserted: 1 });
+    expect(dbMockState.queryCalls[0]).toBe(
+      "INSERT INTO [auth].[Users] ([name]) VALUES (@value0)"
+    );
+    expect(String(result.message)).toContain("[auth].[Users]");
+  });
+
+  it("qualifies drop_table target with schema when provided", async () => {
+    const tool = new DropTableTool();
+
+    const result = await tool.run({
+      tableName: "Temp Orders",
+      schemaName: "sales-data",
+    });
+
+    expect(result).toMatchObject({ success: true });
+    expect(dbMockState.queryCalls[0]).toBe(
+      "DROP TABLE [sales-data].[Temp Orders]"
+    );
+    expect(String(result.message)).toContain("[sales-data].[Temp Orders]");
   });
 
   it("quotes identifiers for created indexes", async () => {

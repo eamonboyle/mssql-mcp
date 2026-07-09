@@ -6,11 +6,13 @@ import { AnalyzeTableTool } from "./tools/AnalyzeTableTool.js";
 import { CreateIndexTool } from "./tools/CreateIndexTool.js";
 import { CreateTableTool } from "./tools/CreateTableTool.js";
 import { DeleteDataTool } from "./tools/DeleteDataTool.js";
+import { DescribeDependenciesTool } from "./tools/DescribeDependenciesTool.js";
 import { DescribeRelationshipsTool } from "./tools/DescribeRelationshipsTool.js";
 import { DescribeObjectTool } from "./tools/DescribeObjectTool.js";
 import { DescribeTableTool } from "./tools/DescribeTableTool.js";
 import { DropTableTool } from "./tools/DropTableTool.js";
 import { ExplainQueryTool } from "./tools/ExplainQueryTool.js";
+import { FilterDataTool } from "./tools/FilterDataTool.js";
 import { InsertDataTool } from "./tools/InsertDataTool.js";
 import { ListDatabasesTool } from "./tools/ListDatabasesTool.js";
 import { ListForeignKeysTool } from "./tools/ListForeignKeysTool.js";
@@ -20,6 +22,7 @@ import { PreviewDeleteTool } from "./tools/PreviewDeleteTool.js";
 import { PreviewUpdateTool } from "./tools/PreviewUpdateTool.js";
 import { ReadDataTool } from "./tools/ReadDataTool.js";
 import { SearchDataTool } from "./tools/SearchDataTool.js";
+import { SummarizeSchemaTool } from "./tools/SummarizeSchemaTool.js";
 import { UpdateDataTool } from "./tools/UpdateDataTool.js";
 import { SQL_FILTER_OPERATORS } from "./writeSafety.js";
 import { getAllowedDatabases } from "./db.js";
@@ -84,6 +87,16 @@ const filterSchema = z
     }
   });
 
+const orderByEntrySchema = z
+  .object({
+    column: z.string().describe("Column name to order by."),
+    direction: z
+      .enum(["ASC", "DESC"])
+      .optional()
+      .describe("Sort direction (default ASC)."),
+  })
+  .strict();
+
 const listTableTool = new ListTableTool();
 const describeTableTool = new DescribeTableTool();
 const listObjectsTool = new ListObjectsTool();
@@ -91,9 +104,12 @@ const describeObjectTool = new DescribeObjectTool();
 const listDatabasesTool = new ListDatabasesTool();
 const listForeignKeysTool = new ListForeignKeysTool();
 const describeRelationshipsTool = new DescribeRelationshipsTool();
+const describeDependenciesTool = new DescribeDependenciesTool();
+const summarizeSchemaTool = new SummarizeSchemaTool();
 const analyzeTableTool = new AnalyzeTableTool();
 const readDataTool = new ReadDataTool();
 const searchDataTool = new SearchDataTool();
+const filterDataTool = new FilterDataTool();
 const explainQueryTool = new ExplainQueryTool();
 const previewUpdateTool = new PreviewUpdateTool();
 const previewDeleteTool = new PreviewDeleteTool();
@@ -143,7 +159,11 @@ const tableNameSchema = completable(
 );
 
 const objectNameSchema = completable(
-  z.string().describe("Object name."),
+  z
+    .string()
+    .trim()
+    .min(1, "Object name must be a non-empty string.")
+    .describe("Object name."),
   async (value, context) => {
     const databaseName = context?.arguments?.databaseName;
     const schemaName = context?.arguments?.schemaName;
@@ -155,6 +175,57 @@ const objectNameSchema = completable(
       );
   }
 );
+
+const filterDataInputSchema = z
+  .object({
+    tableName: tableNameSchema.describe("Name of the table to filter"),
+    schemaName: schemaNameSchema
+      .optional()
+      .describe("Schema containing the table (optional)."),
+    filters: z
+      .array(filterSchema)
+      .min(1)
+      .describe(
+        "Structured filters combined with AND. Same operators as update/delete."
+      ),
+    columns: z
+      .array(z.string())
+      .optional()
+      .describe("Optional columns to return. Omit to select all columns (*)."),
+    orderBy: z
+      .array(orderByEntrySchema)
+      .optional()
+      .describe(
+        "Optional ORDER BY clauses. Required when offset is greater than 0."
+      ),
+    limit: z
+      .number()
+      .optional()
+      .describe(
+        "Maximum number of rows to return (optional). Clamped to MAX_ROWS."
+      ),
+    offset: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe(
+        "Number of rows to skip (optional). Requires orderBy when greater than 0."
+      ),
+    databaseName: databaseNameSchema.optional(),
+  })
+  .strict()
+  .superRefine((input, ctx) => {
+    const offset = input.offset ?? 0;
+    if (offset > 0 && (!input.orderBy || input.orderBy.length === 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["orderBy"],
+        message:
+          "When offset is greater than 0, orderBy is required (SQL Server OFFSET/FETCH).",
+      });
+    }
+  });
 
 export const toolDefinitions: ToolDefinition[] = [
   {
@@ -287,6 +358,39 @@ export const toolDefinitions: ToolDefinition[] = [
       .strict(),
   },
   {
+    tool: describeDependenciesTool,
+    readOnly: true,
+    outputSchema: toolResultOutputSchema,
+    annotations: {
+      readOnlyHint: true,
+    },
+    inputSchema: z
+      .object({
+        objectName: objectNameSchema.describe(
+          "Object name to inspect for dependents."
+        ),
+        schemaName: schemaNameSchema
+          .optional()
+          .describe("Schema containing the object (optional)."),
+        databaseName: databaseNameSchema.optional(),
+      })
+      .strict(),
+  },
+  {
+    tool: summarizeSchemaTool,
+    readOnly: true,
+    outputSchema: toolResultOutputSchema,
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+    },
+    inputSchema: z
+      .object({
+        databaseName: databaseNameSchema.optional(),
+      })
+      .strict(),
+  },
+  {
     tool: analyzeTableTool,
     readOnly: true,
     outputSchema: toolResultOutputSchema,
@@ -353,6 +457,15 @@ export const toolDefinitions: ToolDefinition[] = [
       .passthrough(),
   },
   {
+    tool: filterDataTool,
+    readOnly: true,
+    outputSchema: toolResultOutputSchema,
+    annotations: {
+      readOnlyHint: true,
+    },
+    inputSchema: filterDataInputSchema,
+  },
+  {
     tool: explainQueryTool,
     readOnly: true,
     outputSchema: toolResultOutputSchema,
@@ -416,9 +529,10 @@ export const toolDefinitions: ToolDefinition[] = [
     },
     inputSchema: z
       .object({
-        tableName: z
-          .string()
-          .describe("Name of the table to insert data into"),
+        tableName: tableNameSchema.describe("Name of the table to insert data into"),
+        schemaName: schemaNameSchema
+          .optional()
+          .describe("Schema containing the table (optional)."),
         data: z
           .union([recordSchema, z.array(recordSchema)])
           .describe(
@@ -618,6 +732,9 @@ export const toolDefinitions: ToolDefinition[] = [
     inputSchema: z
       .object({
         tableName: tableNameSchema.describe("Name of the table to drop"),
+        schemaName: schemaNameSchema
+          .optional()
+          .describe("Schema containing the table (optional)."),
         databaseName: databaseNameSchema.optional(),
         confirmed: z
           .boolean()

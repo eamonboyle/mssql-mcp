@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Dependency lockfile: `npm audit fix` and semver-safe updates (e.g. `@modelcontextprotocol/sdk` 1.29.0, `zod` 4.4.3, transitive security patches). Major bumps (`mssql` 12, `dotenv` 17, `vitest` 4) deferred to avoid breaking changes.
 
+## [1.4.0] - 2026-07-08
+
+### Added
+
+- MCP tools: `summarize_schema` (database object/schema counts), `describe_dependencies` (object dependency impact analysis), and `filter_data` (structured AND filters with optional column projection, `ORDER BY`, `limit`, and `offset`).
+- Optional `schemaName` on `insert_data` and `drop_table`, matching other table-targeting write/DDL tools.
+
+### Changed
+
+- Server instructions now recommend `summarize_schema`, `filter_data`, and `describe_dependencies` in the schema-first / safe-analysis workflow.
+- README Available Tools table lists the full tool catalog.
+
 ## [1.3.1] - 2026-04-16
 
 ### Fixed
