@@ -37,6 +37,22 @@ describe("ListLargestTablesTool", () => {
     expect(formatLargestTablesText([])).toBe("No user tables were found.");
   });
 
+  it("formats bigint and string SQL scalar values without precision loss", () => {
+    expect(
+      formatLargestTablesText([
+        {
+          schemaName: "dbo",
+          tableName: "AuditLog",
+          rowCount: 9007199254740993n,
+          reservedMB: "42.50",
+          usedMB: "39.25",
+        },
+      ])
+    ).toContain(
+      "1. dbo.AuditLog — 42.5 MB reserved (39.25 MB used), 9,007,199,254,740,993 row(s)"
+    );
+  });
+
   it("passes filters and the default limit to the schema helper", async () => {
     listLargestTablesMock.mockResolvedValue([
       {

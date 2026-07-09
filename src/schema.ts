@@ -484,9 +484,9 @@ export interface AnalyzeTableResult {
 export interface LargestTableRow {
   schemaName: string;
   tableName: string;
-  rowCount: number;
-  reservedMB: number;
-  usedMB: number;
+  rowCount: unknown;
+  reservedMB: unknown;
+  usedMB: unknown;
 }
 
 /**

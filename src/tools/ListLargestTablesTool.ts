@@ -7,8 +7,39 @@ interface ListLargestTablesParams {
   schemaName?: string;
 }
 
-function formatSize(value: number): string {
-  return Number.isFinite(value) ? `${value.toLocaleString()} MB` : "n/a";
+function formatNumeric(value: unknown): string {
+  if (typeof value === "bigint") {
+    return value.toLocaleString();
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value)
+      ? value.toLocaleString(undefined, { maximumFractionDigits: 4 })
+      : "n/a";
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const normalized = value.trim();
+    if (/^[+-]?\d+$/.test(normalized)) {
+      try {
+        return BigInt(normalized).toLocaleString();
+      } catch {
+        return "n/a";
+      }
+    }
+
+    const numeric = Number(normalized);
+    return Number.isFinite(numeric)
+      ? numeric.toLocaleString(undefined, { maximumFractionDigits: 4 })
+      : "n/a";
+  }
+
+  return "n/a";
+}
+
+function formatSize(value: unknown): string {
+  const formatted = formatNumeric(value);
+  return formatted === "n/a" ? formatted : `${formatted} MB`;
 }
 
 export function formatLargestTablesText(rows: LargestTableRow[]): string {
@@ -19,7 +50,7 @@ export function formatLargestTablesText(rows: LargestTableRow[]): string {
   return rows
     .map(
       (row, index) =>
-        `${index + 1}. ${row.schemaName}.${row.tableName} — ${formatSize(row.reservedMB)} reserved (${formatSize(row.usedMB)} used), ${Number(row.rowCount).toLocaleString()} row(s)`
+        `${index + 1}. ${row.schemaName}.${row.tableName} — ${formatSize(row.reservedMB)} reserved (${formatSize(row.usedMB)} used), ${formatNumeric(row.rowCount)} row(s)`
     )
     .join("\n");
 }
