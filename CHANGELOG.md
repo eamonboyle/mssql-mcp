@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Dependency lockfile: `npm audit fix` and semver-safe updates (e.g. `@modelcontextprotocol/sdk` 1.29.0, `zod` 4.4.3, transitive security patches). Major bumps (`mssql` 12, `dotenv` 17, `vitest` 4) deferred to avoid breaking changes.
+- Dependency lockfile: `npm audit fix` and semver-safe updates (e.g. `@modelcontextprotocol/sdk` 1.29.0, `zod` 4.4.3, transitive security patches). Upgraded `vitest` to 4.x to clear remaining dev-toolchain advisories (`vite`/`esbuild`).
 
 ## [1.4.0] - 2026-07-08
 
