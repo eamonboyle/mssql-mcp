@@ -39,7 +39,7 @@ const SERVER_VERSION = getPackageVersion();
 
 function createInstructions(isReadOnly: boolean) {
   const baseInstructions =
-    "Inspect schema first with list_objects, list_table, describe_object, or describe_table. Prefer read_data, search_data, analyze_table, describe_relationships, and explain_query for safe analysis. For update_data and delete_data, run preview_update or preview_delete first, then pass the returned previewToken with confirmed=true when REQUIRE_WRITE_PREVIEW is enabled (default).";
+    "Inspect schema first with summarize_schema, list_objects, list_table, describe_object, or describe_table. Prefer read_data, filter_data, search_data, analyze_table, describe_relationships, describe_dependencies, and explain_query for safe analysis. For update_data and delete_data, run preview_update or preview_delete first, then pass the returned previewToken with confirmed=true when REQUIRE_WRITE_PREVIEW is enabled (default).";
   const readOnlyInstructions =
     " This server is READONLY: write and DDL tools are disabled. Never use sqlcmd, SSMS, other DB CLI tools, or terminal scripts to bypass the MCP safety model.";
 

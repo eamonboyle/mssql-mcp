@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![npm version](https://img.shields.io/npm/v/@eamonboyle/mssql-mcp.svg)](https://www.npmjs.com/package/@eamonboyle/mssql-mcp)
-[![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
+[![Node.js 20+](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![X: @eamonyo](https://img.shields.io/badge/X-%40eamonyo-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/eamonyo)
 
 [![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=MSSQL&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBlYW1vbmJveWxlL21zc3FsLW1jcCJdLCJlbnYiOnsiU0VSVkVSX05BTUUiOiJsb2NhbGhvc3QiLCJEQVRBQkFTRV9OQU1FIjoiWW91ckRhdGFiYXNlIiwiREFUQUJBU0VTIjoiIiwiREJfVVNFUiI6IiIsIkRCX1BBU1NXT1JEIjoiIiwiUkVBRE9OTFkiOiJmYWxzZSIsIkNPTk5FQ1RJT05fVElNRU9VVCI6IjMwIiwiUVVFUllfVElNRU9VVF9NUyI6IjMwMDAwIiwiTUFYX1JPV1MiOiIxMDAwMCIsIlRSVVNUX1NFUlZFUl9DRVJUSUZJQ0FURSI6ImZhbHNlIiwiTUNQX1RSQU5TUE9SVCI6InN0ZGlvIiwiTUNQX0hUVFBfSE9TVCI6IjEyNy4wLjAuMSIsIk1DUF9IVFRQX1BPUlQiOiIzMzMzIiwiTUNQX0JBU0VfVVJMIjoiIiwiRU5BQkxFX0RETCI6ImZhbHNlIiwiTUFYX1dSSVRFX1JPV1MiOiIxMDAiLCJSRVFVSVJFX1dSSVRFX1BSRVZJRVciOiJ0cnVlIn19)
@@ -25,7 +25,9 @@ AI: *queries your MSSQL database and returns the results in plain English*
 
 - **Natural language to SQL** — Ask questions in plain English
 - **Row-level CRUD support** — Read, insert, update, and delete rows with dedicated tools
-- **Schema discovery** — Inspect tables, views, procedures, functions, and triggers
+- **Structured filtering** — `filter_data` uses the same safe filter DSL as update/delete (no raw SQL required)
+- **Schema discovery** — Inspect tables, views, procedures, functions, and triggers; summarize counts with `summarize_schema`
+- **Dependency impact analysis** — `describe_dependencies` before drops or refactors
 - **Safer write workflows** — `preview_update` and `preview_delete` plus confirmation gating for destructive tools
 - **Rich text tool results** — Concise summaries with JSON inlined in the primary text block when helpful, plus resource links for large artifacts
 - **Query analysis** — Generate estimated execution plans with `explain_query`
@@ -54,7 +56,7 @@ Click **Add to Cursor** or **Install in VS Code** above to add the MCP server—
 
 ### Prerequisites
 
-- **Node.js 18** or higher
+- **Node.js 20** or higher
 - SQL Server (local, Azure SQL, or remote)
 - An MCP-compatible AI client (Claude Desktop, Cursor, etc.)
 
@@ -76,6 +78,8 @@ cd mssql-mcp
 npm install
 npm run build
 ```
+
+To exercise MCP tools against a real database locally, start the seeded Docker SQL Server (`npm run db:up`). See [`docs/dev-database.md`](docs/dev-database.md).
 
 ## Configuration
 
@@ -304,21 +308,30 @@ Once configured, you can ask things like:
 
 ## Available Tools
 
-| Tool              | Read-only | Description                                             |
-| ----------------- | --------- | ------------------------------------------------------- |
-| `read_data`       | ✓         | Execute validated SELECT queries                        |
-| `search_data`     | ✓         | Search one or more columns with parameterized `LIKE`    |
-| `explain_query`   | ✓         | Get an estimated execution plan for a SELECT query      |
-| `list_table`      | ✓         | List tables in a database                               |
-| `describe_table`  | ✓         | Get table schema (optional `schemaName`)                |
-| `list_objects`    | ✓         | List tables, views, procedures, functions, and triggers |
-| `describe_object` | ✓         | Describe an object definition and metadata              |
-| `insert_data`     |           | Insert rows                                             |
-| `update_data`     |           | Update rows (requires WHERE; optional `schemaName`)     |
-| `delete_data`     |           | Delete rows (requires WHERE; optional `schemaName`)     |
-| `create_table`    |           | Create tables                                           |
-| `create_index`    |           | Create indexes                                          |
-| `drop_table`      |           | Drop tables                                             |
+| Tool                     | Read-only | Description                                                                 |
+| ------------------------ | --------- | --------------------------------------------------------------------------- |
+| `list_databases`         | ✓         | List configured/allowed databases                                           |
+| `list_table`             | ✓         | List tables in a database                                                   |
+| `describe_table`         | ✓         | Get table schema (optional `schemaName`)                                    |
+| `list_objects`           | ✓         | List tables, views, procedures, functions, and triggers                     |
+| `describe_object`        | ✓         | Describe an object definition and metadata                                  |
+| `summarize_schema`       | ✓         | High-level object counts by type and per schema                             |
+| `list_foreign_keys`      | ✓         | List foreign key relationships                                              |
+| `describe_relationships` | ✓         | Foreign keys involving a specific table                                     |
+| `describe_dependencies`  | ✓         | Objects that depend on a given object                                       |
+| `analyze_table`          | ✓         | Row counts, storage, and indexes for a table                                |
+| `read_data`              | ✓         | Execute validated SELECT queries                                            |
+| `filter_data`            | ✓         | Structured AND filters (same DSL as writes); optional `orderBy`/`offset`    |
+| `search_data`            | ✓         | Search one or more columns with parameterized `LIKE`                        |
+| `explain_query`          | ✓         | Get an estimated execution plan for a SELECT query                          |
+| `preview_update`         | ✓         | Preview rows that would be updated; returns `previewToken` when required    |
+| `preview_delete`         | ✓         | Preview rows that would be deleted; returns `previewToken` when required    |
+| `insert_data`            |           | Insert rows (optional `schemaName`)                                         |
+| `update_data`            |           | Update rows (requires filters; optional `schemaName`)                       |
+| `delete_data`            |           | Delete rows (requires filters; optional `schemaName`)                       |
+| `create_table`           |           | Create tables (requires `ENABLE_DDL=true`)                                  |
+| `create_index`           |           | Create indexes (requires `ENABLE_DDL=true`)                                 |
+| `drop_table`             |           | Drop tables (requires `ENABLE_DDL=true`; optional `schemaName`)             |
 
 ## Resources And Prompts
 

@@ -4,12 +4,12 @@
  * so `forVersion` matches `package.json` version.
  */
 export const RELEASE_META = {
-  forVersion: "1.3.0",
-  releaseDate: "2026-03-28",
+  forVersion: "1.4.1",
+  releaseDate: "2026-07-09",
   latestChanges: [
-    "Tools: list_databases, list_foreign_keys, describe_relationships, analyze_table, preview_update, preview_delete",
-    "Structured tool results (versioned JSON) and write-preview flow with REQUIRE_WRITE_PREVIEW",
-    "DDL gated by ENABLE_DDL; MAX_WRITE_ROWS for preview/write safety",
-    "Resources: object_dependencies; ServerState caching for explain/query artifacts",
+    "Tool: server_about — package version, release date, and latest release highlights",
+    "Tools: summarize_schema, describe_dependencies, filter_data (structured filters with ORDER BY / offset)",
+    "Optional schemaName on insert_data and drop_table; dependency and schema discovery workflow",
+    "Minimum Node.js 20; vitest 4 and dependency security updates",
   ],
 } as const;

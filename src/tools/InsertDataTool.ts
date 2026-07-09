@@ -5,6 +5,7 @@ type InsertRow = Record<string, unknown>;
 
 interface InsertDataParams {
   tableName: string;
+  schemaName?: string;
   data: InsertRow | InsertRow[];
   databaseName?: string;
 }
@@ -57,7 +58,7 @@ IMPORTANT RULES:
 
   async run(params: InsertDataParams) {
     try {
-      const { tableName, data, databaseName } = params;
+      const { tableName, schemaName, data, databaseName } = params;
 
       const { request, error } = await getSqlRequest(databaseName);
       if (error) {
@@ -92,7 +93,7 @@ IMPORTANT RULES:
           };
         }
       }
-      const qualifiedTableName = buildQualifiedName(tableName);
+      const qualifiedTableName = buildQualifiedName(tableName, schemaName);
       const columns = firstRecordColumns
         .map((columnName) => quoteIdentifier(columnName))
         .join(", ");
@@ -113,7 +114,7 @@ IMPORTANT RULES:
         await request.query(query);
         return {
           success: true,
-          message: `Successfully inserted ${records.length} record${records.length > 1 ? "s" : ""} into ${tableName}`,
+          message: `Successfully inserted ${records.length} record${records.length > 1 ? "s" : ""} into ${qualifiedTableName}`,
           recordsInserted: records.length,
         };
       } else {
@@ -128,7 +129,7 @@ IMPORTANT RULES:
         await request.query(query);
         return {
           success: true,
-          message: `Successfully inserted 1 record into ${tableName}`,
+          message: `Successfully inserted 1 record into ${qualifiedTableName}`,
           recordsInserted: 1,
         };
       }

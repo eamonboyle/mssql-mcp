@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-07-09
+
+### Changed
+
+- Dependency lockfile: `npm audit fix` and semver-safe updates (`@modelcontextprotocol/sdk` 1.29.0, `zod` 4.4.3, transitive security patches). Upgraded `vitest` to 4.x to clear remaining dev-toolchain advisories (`vite`/`esbuild`).
+- Minimum Node.js raised to **20** (vitest 4 / vite 8 engine requirement); CI matrix now tests Node 20 and 22.
+
+## [1.4.0] - 2026-07-08
+
+### Added
+
+- MCP tools: `summarize_schema` (database object/schema counts), `describe_dependencies` (object dependency impact analysis), and `filter_data` (structured AND filters with optional column projection, `ORDER BY`, `limit`, and `offset`).
+- Optional `schemaName` on `insert_data` and `drop_table`, matching other table-targeting write/DDL tools.
+
+### Changed
+
+- Server instructions now recommend `summarize_schema`, `filter_data`, and `describe_dependencies` in the schema-first / safe-analysis workflow.
+- README Available Tools table lists the full tool catalog.
+
+## [1.3.1] - 2026-04-16
+
+### Fixed
+
+- `read_data`: log validated-query audit line to **stderr** only so MCP **stdio** transport is not corrupted by non-JSON stdout (fixes clients reporting `Unexpected token 'E', "Executing "...`).
+
 ## [1.3.0] - 2026-03-28
 
 ### Added

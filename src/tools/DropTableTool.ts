@@ -3,6 +3,7 @@ import { buildQualifiedName } from "../sql.js";
 
 interface DropTableParams {
   tableName: string;
+  schemaName?: string;
   databaseName?: string;
 }
 
@@ -12,18 +13,19 @@ export class DropTableTool {
 
   async run(params: DropTableParams) {
     try {
-      const { tableName, databaseName } = params;
+      const { tableName, schemaName, databaseName } = params;
 
       const { request, error } = await getSqlRequest(databaseName);
       if (error) {
         return { success: false, message: error };
       }
 
-      const query = `DROP TABLE ${buildQualifiedName(tableName)}`;
+      const qualifiedTableName = buildQualifiedName(tableName, schemaName);
+      const query = `DROP TABLE ${qualifiedTableName}`;
       await request.query(query);
       return {
         success: true,
-        message: `Table '${tableName}' dropped successfully.`,
+        message: `Table '${qualifiedTableName}' dropped successfully.`,
       };
     } catch (error) {
       console.error("Error dropping table:", error);
