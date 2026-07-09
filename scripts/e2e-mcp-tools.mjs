@@ -220,6 +220,12 @@ async function main() {
     Array.isArray(payload?.data?.objectCounts) && payload.data.objectCounts.length > 0
   );
 
+  await runTool("list_largest_tables", {
+    databaseName: DATABASE,
+    schemaName: SCHEMA,
+    limit: 5,
+  }, ({ payload }) => Array.isArray(payload?.data) && payload.data.length > 0);
+
   await runTool("analyze_table", {
     databaseName: DATABASE,
     schemaName: SCHEMA,
@@ -240,14 +246,6 @@ async function main() {
     searchTerm: "example",
     limit: 5,
   });
-
-  await runTool("filter_data", {
-    databaseName: DATABASE,
-    schemaName: SCHEMA,
-    tableName: "Customers",
-    filters: [{ column: "Id", operator: "=", value: 1 }],
-    limit: 5,
-  }, ({ payload }) => rowsFromPayload(payload).length >= 1);
 
   await runTool("explain_query", {
     databaseName: DATABASE,

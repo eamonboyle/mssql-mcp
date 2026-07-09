@@ -481,6 +481,54 @@ export interface AnalyzeTableResult {
   indexes: Array<Record<string, unknown>>;
 }
 
+export interface LargestTableRow {
+  schemaName: string;
+  tableName: string;
+  rowCount: unknown;
+  reservedMB: unknown;
+  usedMB: unknown;
+}
+
+/**
+ * Returns the tables using the most space in a database. Row counts only use
+ * heap/clustered partitions so nonclustered indexes do not inflate them;
+ * storage figures intentionally include every index.
+ */
+export async function listLargestTables(
+  limit: number,
+  databaseName?: string,
+  schemaName?: string
+): Promise<LargestTableRow[]> {
+  const { request, error } = await getSqlRequest(databaseName);
+  if (error) {
+    throw new Error(error);
+  }
+
+  request.input("limit", sql.Int, limit);
+  if (schemaName) {
+    request.input("schemaName", sql.NVarChar, schemaName);
+  }
+
+  const schemaFilter = schemaName ? "AND s.name = @schemaName" : "";
+  const result = await request.query(`
+    SELECT TOP (@limit)
+      s.name AS schemaName,
+      t.name AS tableName,
+      SUM(CASE WHEN ps.index_id IN (0, 1) THEN ps.row_count ELSE 0 END) AS rowCount,
+      CAST(SUM(ps.reserved_page_count) * 8.0 / 1024 AS DECIMAL(18, 2)) AS reservedMB,
+      CAST(SUM(ps.used_page_count) * 8.0 / 1024 AS DECIMAL(18, 2)) AS usedMB
+    FROM sys.tables t
+    INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+    INNER JOIN sys.dm_db_partition_stats ps ON ps.object_id = t.object_id
+    WHERE t.is_ms_shipped = 0
+      ${schemaFilter}
+    GROUP BY s.name, t.name
+    ORDER BY reservedMB DESC, s.name, t.name;
+  `);
+
+  return result.recordset as LargestTableRow[];
+}
+
 export async function analyzeTable(
   tableName: string,
   databaseName?: string,
