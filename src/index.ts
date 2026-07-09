@@ -33,7 +33,7 @@ import { fingerprintForWriteTool } from "./writePreviewGrant.js";
 import { writePreviewGrantStore } from "./writePreviewGrantStore.js";
 import { previewFilteredRows } from "./writePreview.js";
 
-const SERVER_VERSION = "1.4.0";
+const SERVER_VERSION = "1.4.1";
 const SERVER_NAME = "mssql-mcp-server";
 
 function createInstructions(isReadOnly: boolean) {

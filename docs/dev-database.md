@@ -5,7 +5,7 @@ This repo includes a Docker Compose stack that runs Microsoft SQL Server 2022 wi
 ## Prerequisites
 
 - Docker Engine with the Compose plugin (`docker compose`)
-- Node.js 18+
+- Node.js 20+
 
 ## Quick start
 
