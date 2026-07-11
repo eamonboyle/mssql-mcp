@@ -76,6 +76,8 @@ Only required variables are included in standard presets:
 
 Cursor uses `mcpServers` in `~/.cursor/mcp.json` or `.cursor/mcp.json`. Claude Desktop uses the same shape in its configuration file.
 
+The standard presets use `ENABLE_DDL=true` so every advertised tool can be exercised immediately. Set it to `false` unless the assistant specifically needs to create or remove schema objects.
+
 VS Code uses `.vscode/mcp.json` or its user MCP configuration with a top-level `servers` object:
 
 ```json
@@ -150,22 +152,23 @@ The container still listens on `1433`, but the MCP process connects through host
 
 Optional variables do not need empty placeholders. In-code defaults apply when they are absent.
 
-| Variable                | Accepted format               | Default               | Purpose                                                          |
-| ----------------------- | ----------------------------- | --------------------- | ---------------------------------------------------------------- |
-| `SERVER_PORT`           | Integer from `1` to `65535`   | Driver default `1433` | SQL Server TCP port; omitted from the driver config when unset   |
-| `CONNECTION_TIMEOUT`    | Positive integer seconds      | `30`                  | SQL Server connection timeout                                    |
-| `QUERY_TIMEOUT_MS`      | Positive integer milliseconds | `30000`               | SQL request timeout                                              |
-| `MAX_ROWS`              | Positive integer              | `10000`               | Maximum rows returned by read tools                              |
-| `MAX_WRITE_ROWS`        | Positive integer              | `100`                 | Maximum rows one write operation may affect                      |
-| `REQUIRE_WRITE_PREVIEW` | `"true"` or `"false"`         | `"true"`              | Require a matching preview token for updates and deletes         |
-| `MCP_TRANSPORT`         | `stdio` or `http`             | `stdio`               | MCP transport mode                                               |
-| `MCP_HTTP_HOST`         | Host or IP string             | `127.0.0.1`           | Bind address for HTTP mode                                       |
-| `MCP_HTTP_PORT`         | Integer from `1` to `65535`   | `3333`                | Bind port for HTTP mode                                          |
-| `MCP_BASE_URL`          | URL string                    | Unset                 | Reserved configuration value; it currently has no runtime effect |
+| Variable                | Accepted format               | Default               | Purpose                                                        |
+| ----------------------- | ----------------------------- | --------------------- | -------------------------------------------------------------- |
+| `SERVER_PORT`           | Integer from `1` to `65535`   | Driver default `1433` | SQL Server TCP port; omitted from the driver config when unset |
+| `ENCRYPT`               | `"true"` or `"false"`         | `"false"`             | Enable TLS encryption in the `mssql` driver                    |
+| `CONNECTION_TIMEOUT`    | Positive integer seconds      | `30`                  | SQL Server connection timeout                                  |
+| `QUERY_TIMEOUT_MS`      | Positive integer milliseconds | `30000`               | SQL request timeout                                            |
+| `MAX_ROWS`              | Positive integer              | `10000`               | Maximum rows returned by read tools                            |
+| `MAX_WRITE_ROWS`        | Positive integer              | `100`                 | Maximum rows one write operation may affect                    |
+| `REQUIRE_WRITE_PREVIEW` | `"true"` or `"false"`         | `"true"`              | Require a matching preview token for updates and deletes       |
+| `MCP_TRANSPORT`         | `stdio` or `http`             | `stdio`               | MCP transport mode                                             |
+| `MCP_HTTP_HOST`         | Host or IP string             | `127.0.0.1`           | Bind address for HTTP mode                                     |
+| `MCP_HTTP_PORT`         | Integer from `1` to `65535`   | `3333`                | Bind port for HTTP mode                                        |
+| `MCP_BASE_URL`          | Absolute HTTP or HTTPS URL    | Unset                 | Public HTTP base advertised by the server; `/mcp` is appended  |
 
 Explicit invalid integers, booleans, ports, or transport names fail validation rather than falling back silently.
 
-The SQL connection currently sets `encrypt: false`. `TRUST_SERVER_CERTIFICATE` is still passed through to the driver, but it does not enable encryption. Use this server only where that connection behavior is appropriate.
+`ENCRYPT=false` preserves the existing unencrypted connection behavior. Set `ENCRYPT=true` for TLS. With encryption enabled, keep `TRUST_SERVER_CERTIFICATE=false` for certificates that chain to a trusted authority. Use `TRUST_SERVER_CERTIFICATE=true` only when explicitly accepting a self-signed or otherwise untrusted certificate, such as local development.
 
 ## Multi-database behavior
 
@@ -204,6 +207,14 @@ http://127.0.0.1:3333/mcp
 ```
 
 An HTTP client must accept `application/json, text/event-stream`. Each HTTP request creates a fresh MCP server instance. Preview tokens use a process-wide store so they remain valid across requests to the same process.
+
+For a reverse proxy or externally published path, set `MCP_BASE_URL` to the public base without the final `/mcp` segment:
+
+```text
+MCP_BASE_URL=https://example.com/services/mssql
+```
+
+The server continues binding to `MCP_HTTP_HOST:MCP_HTTP_PORT`, logs `https://example.com/services/mssql/mcp` as its public endpoint, and exposes that URL through `mssql://config/server`. `MCP_E2E_BASE_URL` is a separate test-harness variable used only by `scripts/e2e-mcp-tools.mjs`.
 
 Cursor HTTP configuration:
 
@@ -306,7 +317,7 @@ See [`docs/dev-database.md`](docs/dev-database.md) for database and E2E details 
 - Keep `ENABLE_DDL=false` unless schema changes are explicitly needed.
 - Keep credentials out of source control and use your client's secret-input support or a secrets manager.
 - Bind HTTP mode to a trusted interface and add network authentication or isolation outside this package.
-- Review the connection encryption limitation in Advanced configuration before deployment.
+- Set `ENCRYPT=true` for TLS deployments and keep `TRUST_SERVER_CERTIFICATE=false` when the server certificate is publicly or privately trusted.
 - Report vulnerabilities through the [security policy](.github/SECURITY.md).
 
 ## Project links

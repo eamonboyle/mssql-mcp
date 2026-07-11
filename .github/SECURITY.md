@@ -19,7 +19,8 @@ Include a description of the vulnerability, steps to reproduce, and any suggeste
 
 When using this MCP server:
 
-- **Never commit credentials** — Use environment variables or a secrets manager for `DB_USER` and `DB_PASSWORD`
-- **Use read-only mode** when possible — Set `READONLY: "true"` for query-only workloads
-- **Limit database access** — Use a dedicated SQL user with minimal required permissions
-- **Use encrypted connections** — Ensure your SQL Server uses TLS; avoid `TRUST_SERVER_CERTIFICATE` in production unless necessary
+- **Never commit credentials** - Use environment variables or a secrets manager for `DB_USER` and `DB_PASSWORD`.
+- **Use read-only mode** when possible - Set `READONLY: "true"` for query-only workloads.
+- **Limit database access** - Use a dedicated SQL user with minimal required permissions.
+- **Use encrypted connections** - Set `ENCRYPT=true` and keep `TRUST_SERVER_CERTIFICATE=false` when the SQL Server certificate chains to a trusted authority. Enable certificate trust only when explicitly accepting a self-signed or otherwise untrusted certificate.
+- **Protect HTTP deployments** - Bind to a trusted interface and place externally reachable MCP endpoints behind appropriate network authentication and isolation.
