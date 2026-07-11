@@ -1,6 +1,6 @@
 {
   "name": "@eamonboyle/mssql-mcp",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "MCP server for Microsoft SQL Server - query and manage your database with natural language in Cursor, Claude, and VS Code",
   "keywords": [
     "mcp",

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-07-11
+
+### Added
+
+- Optional `SERVER_PORT` support for SQL Server instances on non-default TCP ports. Configurations without it continue to use the driver default port of `1433`.
+
+### Changed
+
+- Environment configuration now validates required values and booleans at startup, applies optional defaults in code, and rejects invalid explicit TCP ports.
+- Cursor, VS Code, Claude Desktop, and MCP configuration samples now contain only required variables, with advanced settings documented separately.
+- Connection, safety, transport, tool, resource, and development documentation has been audited and simplified.
+
 ## [1.5.0] - 2026-07-09
 
 ### Added
