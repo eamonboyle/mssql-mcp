@@ -1,19 +1,12 @@
 import sql from "mssql";
-import { getQueryTimeoutMs } from "./config.js";
+import {
+  type EnvironmentConfig,
+  parseDatabaseList,
+  parseEnvironmentConfig,
+} from "./config.js";
 
 // Connection pools keyed by database name
 const sqlPools = new Map<string, sql.ConnectionPool>();
-
-function parseDatabaseList(value?: string): string[] {
-  if (!value || !value.trim()) {
-    return [];
-  }
-
-  return value
-    .split(",")
-    .map((db) => db.trim())
-    .filter(Boolean);
-}
 
 export function getDefaultDatabaseName(): string | null {
   const allowedDatabases = parseDatabaseList(process.env.DATABASES);
@@ -58,27 +51,30 @@ export function resolveDatabaseName(databaseName?: string): string | null {
   return null;
 }
 
-function createSqlConfigForDatabase(databaseName: string): sql.config {
-  const trustServerCertificate =
-    process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === "true";
-  const connectionTimeout = process.env.CONNECTION_TIMEOUT
-    ? parseInt(process.env.CONNECTION_TIMEOUT, 10)
-    : 30;
-
-  return {
-    server: process.env.SERVER_NAME || "localhost",
+export function buildSqlConfig(
+  databaseName: string,
+  environment: EnvironmentConfig
+): sql.config {
+  const config: sql.config = {
+    server: environment.serverName,
     database: databaseName,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    requestTimeout: getQueryTimeoutMs(),
+    user: environment.dbUser,
+    password: environment.dbPassword,
+    requestTimeout: environment.queryTimeoutMs,
     options: {
       encrypt: false,
-      trustServerCertificate: trustServerCertificate || true,
+      trustServerCertificate: environment.trustServerCertificate,
       enableArithAbort: true,
       useUTC: false,
     },
-    connectionTimeout: connectionTimeout * 1000,
-  } as sql.config;
+    connectionTimeout: environment.connectionTimeoutSeconds * 1000,
+  };
+
+  if (environment.serverPort !== undefined) {
+    config.port = environment.serverPort;
+  }
+
+  return config;
 }
 
 async function resolveConfiguredDatabase(
@@ -121,7 +117,7 @@ export async function ensureSqlConnection(
     sqlPools.delete(databaseName);
   }
 
-  const config = createSqlConfigForDatabase(databaseName);
+  const config = buildSqlConfig(databaseName, parseEnvironmentConfig());
   const pool = new sql.ConnectionPool(config);
   await pool.connect();
   sqlPools.set(databaseName, pool);
@@ -160,7 +156,7 @@ export async function getDedicatedSqlPool(
   }
 
   const config = {
-    ...createSqlConfigForDatabase(resolved.databaseName),
+    ...buildSqlConfig(resolved.databaseName, parseEnvironmentConfig()),
     pool: {
       max: 1,
       min: 0,

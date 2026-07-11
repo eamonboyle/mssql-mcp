@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const mssqlMockState = vi.hoisted(() => ({
-  poolConfigs: [] as Array<{ database?: string }>,
+  poolConfigs: [] as Array<Record<string, unknown> & { database?: string }>,
   requestObject: { kind: "mock-request" },
   connectCalls: vi.fn(),
   closeCalls: vi.fn(),
@@ -41,13 +41,33 @@ vi.mock("mssql", () => {
   };
 });
 
-import { getAllowedDatabases, getSqlRequest, resolveDatabaseName } from "../db.js";
+import { parseEnvironmentConfig } from "../config.js";
+import {
+  buildSqlConfig,
+  getAllowedDatabases,
+  getSqlRequest,
+  resolveDatabaseName,
+} from "../db.js";
+
+function setRequiredEnvironment() {
+  Object.assign(process.env, {
+    SERVER_NAME: "localhost",
+    DATABASE_NAME: "AppDB",
+    DATABASES: "AppDB,ReportingDB",
+    DB_USER: "sa",
+    DB_PASSWORD: "test-password",
+    TRUST_SERVER_CERTIFICATE: "true",
+    READONLY: "false",
+    ENABLE_DDL: "false",
+  });
+}
 
 describe("getAllowedDatabases", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    setRequiredEnvironment();
     mssqlMockState.poolConfigs.length = 0;
     mssqlMockState.connectCalls.mockClear();
     mssqlMockState.closeCalls.mockClear();
@@ -111,6 +131,7 @@ describe("resolveDatabaseName", () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    setRequiredEnvironment();
     mssqlMockState.poolConfigs.length = 0;
     mssqlMockState.connectCalls.mockClear();
     mssqlMockState.closeCalls.mockClear();
@@ -194,6 +215,7 @@ describe("getSqlRequest", () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    setRequiredEnvironment();
     mssqlMockState.poolConfigs.length = 0;
     mssqlMockState.connectCalls.mockClear();
     mssqlMockState.closeCalls.mockClear();
@@ -261,5 +283,79 @@ describe("getSqlRequest", () => {
     expect(mssqlMockState.requestCalls).toHaveBeenCalledWith(
       expect.objectContaining({ database: "ProdDB" })
     );
+  });
+});
+
+describe("buildSqlConfig", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    setRequiredEnvironment();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("builds a host-only connection without an explicit port", () => {
+    delete process.env.SERVER_PORT;
+
+    const config = buildSqlConfig("AppDB", parseEnvironmentConfig(process.env));
+
+    expect(config.server).toBe("localhost");
+    expect(config).not.toHaveProperty("port");
+  });
+
+  it.each([
+    ["1434", 1434],
+    ["1433", 1433],
+  ])("passes SERVER_PORT=%s separately as port %i", (value, expected) => {
+    process.env.SERVER_PORT = value;
+
+    const config = buildSqlConfig("AppDB", parseEnvironmentConfig(process.env));
+
+    expect(config.server).toBe("localhost");
+    expect(config.port).toBe(expected);
+  });
+
+  it("does not split or otherwise transform SERVER_NAME", () => {
+    process.env.SERVER_NAME = "localhost,1434";
+    delete process.env.SERVER_PORT;
+
+    const config = buildSqlConfig("AppDB", parseEnvironmentConfig(process.env));
+
+    expect(config.server).toBe("localhost,1434");
+    expect(config).not.toHaveProperty("port");
+  });
+
+  it("preserves authentication, timeouts, and connection options", () => {
+    Object.assign(process.env, {
+      DB_USER: "database-user",
+      DB_PASSWORD: "database-password",
+      TRUST_SERVER_CERTIFICATE: "false",
+      CONNECTION_TIMEOUT: "45",
+      QUERY_TIMEOUT_MS: "60000",
+    });
+
+    const config = buildSqlConfig(
+      "ReportingDB",
+      parseEnvironmentConfig(process.env)
+    );
+
+    expect(config).toMatchObject({
+      server: "localhost",
+      database: "ReportingDB",
+      user: "database-user",
+      password: "database-password",
+      requestTimeout: 60000,
+      connectionTimeout: 45000,
+      options: {
+        encrypt: false,
+        trustServerCertificate: false,
+        enableArithAbort: true,
+        useUTC: false,
+      },
+    });
   });
 });
