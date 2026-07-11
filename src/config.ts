@@ -17,6 +17,7 @@ export interface EnvironmentConfig {
   databases: string[];
   dbUser: string;
   dbPassword: string;
+  encrypt: boolean;
   trustServerCertificate: boolean;
   readOnly: boolean;
   enableDdl: boolean;
@@ -115,6 +116,33 @@ function parseServerPort(value: string | undefined): number | undefined {
   return port;
 }
 
+function parseMcpBaseUrl(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(normalized);
+  } catch {
+    throw new Error("MCP_BASE_URL must be a valid absolute HTTP or HTTPS URL.");
+  }
+
+  if (
+    (url.protocol !== "http:" && url.protocol !== "https:") ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("MCP_BASE_URL must be a valid absolute HTTP or HTTPS URL.");
+  }
+
+  url.pathname = url.pathname.replace(/\/+$/, "");
+  return url.toString().replace(/\/$/, "");
+}
+
 export function parseDatabaseList(value: string | undefined): string[] {
   if (!value?.trim()) {
     return [];
@@ -144,6 +172,7 @@ export function parseEnvironmentConfig(
     databases,
     dbUser: parseRequiredString("DB_USER", env.DB_USER),
     dbPassword: parseRequiredString("DB_PASSWORD", env.DB_PASSWORD),
+    encrypt: parseBoolean("ENCRYPT", env.ENCRYPT, false),
     trustServerCertificate: parseBoolean(
       "TRUST_SERVER_CERTIFICATE",
       env.TRUST_SERVER_CERTIFICATE
@@ -180,7 +209,7 @@ export function parseEnvironmentConfig(
       1,
       65535
     ),
-    mcpBaseUrl: env.MCP_BASE_URL?.trim() || undefined,
+    mcpBaseUrl: parseMcpBaseUrl(env.MCP_BASE_URL),
   };
 }
 
@@ -270,8 +299,19 @@ export function getMcpHttpHost(): string {
 }
 
 export function getMcpBaseUrl(): string | undefined {
-  const value = process.env.MCP_BASE_URL?.trim();
-  return value ? value : undefined;
+  return parseMcpBaseUrl(process.env.MCP_BASE_URL);
+}
+
+export function getMcpEndpointUrl(
+  environment: Pick<
+    EnvironmentConfig,
+    "mcpBaseUrl" | "mcpHttpHost" | "mcpHttpPort"
+  >
+): string {
+  const baseUrl =
+    environment.mcpBaseUrl ??
+    `http://${environment.mcpHttpHost}:${environment.mcpHttpPort}`;
+  return `${baseUrl.replace(/\/+$/, "")}/mcp`;
 }
 
 export function isDdlEnabled(): boolean {

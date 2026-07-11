@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   clampRowLimit,
   getDefaultSearchLimit,
+  getMcpBaseUrl,
+  getMcpEndpointUrl,
   getMcpHttpHost,
   getMcpHttpPort,
   getMcpTransport,
@@ -82,6 +84,7 @@ describe("config helpers", () => {
     const config = parseEnvironmentConfig({ ...requiredEnvironment });
 
     expect(config).toMatchObject({
+      encrypt: false,
       connectionTimeoutSeconds: 30,
       queryTimeoutMs: 30000,
       maxRows: 10000,
@@ -157,6 +160,7 @@ describe("config helpers", () => {
   it("parses optional values when supplied", () => {
     const config = parseEnvironmentConfig({
       ...requiredEnvironment,
+      ENCRYPT: "true",
       CONNECTION_TIMEOUT: "45",
       QUERY_TIMEOUT_MS: "45000",
       MAX_ROWS: "500",
@@ -165,10 +169,11 @@ describe("config helpers", () => {
       MCP_TRANSPORT: "http",
       MCP_HTTP_HOST: "0.0.0.0",
       MCP_HTTP_PORT: "4444",
-      MCP_BASE_URL: "https://example.test/mcp",
+      MCP_BASE_URL: "https://example.test/services/mssql/",
     });
 
     expect(config).toMatchObject({
+      encrypt: true,
       connectionTimeoutSeconds: 45,
       queryTimeoutMs: 45000,
       maxRows: 500,
@@ -177,8 +182,68 @@ describe("config helpers", () => {
       mcpTransport: "http",
       mcpHttpHost: "0.0.0.0",
       mcpHttpPort: 4444,
-      mcpBaseUrl: "https://example.test/mcp",
+      mcpBaseUrl: "https://example.test/services/mssql",
     });
+  });
+
+  it.each(["yes", "1", "on", ""])(
+    "rejects invalid ENCRYPT value %j",
+    (value) => {
+      expect(() =>
+        parseEnvironmentConfig({
+          ...requiredEnvironment,
+          ENCRYPT: value,
+        })
+      ).toThrow('ENCRYPT must be either "true" or "false".');
+    }
+  );
+});
+
+describe("MCP_BASE_URL", () => {
+  it("normalizes a valid external base and derives its MCP endpoint", () => {
+    const config = parseEnvironmentConfig({
+      ...requiredEnvironment,
+      MCP_BASE_URL: "https://proxy.example.test/services/mssql///",
+    });
+
+    expect(config.mcpBaseUrl).toBe("https://proxy.example.test/services/mssql");
+    expect(getMcpEndpointUrl(config)).toBe(
+      "https://proxy.example.test/services/mssql/mcp"
+    );
+  });
+
+  it("derives the local endpoint when no external base is configured", () => {
+    const config = parseEnvironmentConfig({
+      ...requiredEnvironment,
+      MCP_HTTP_HOST: "0.0.0.0",
+      MCP_HTTP_PORT: "4444",
+    });
+
+    expect(getMcpEndpointUrl(config)).toBe("http://0.0.0.0:4444/mcp");
+  });
+
+  it.each([
+    "example.test",
+    "/relative",
+    "ftp://example.test",
+    "https://user:password@example.test",
+    "https://example.test?query=yes",
+    "https://example.test/#section",
+  ])("rejects invalid external base %j", (value) => {
+    expect(() =>
+      parseEnvironmentConfig({
+        ...requiredEnvironment,
+        MCP_BASE_URL: value,
+      })
+    ).toThrow("MCP_BASE_URL must be a valid absolute HTTP or HTTPS URL.");
+  });
+
+  it("uses the same validation in the direct getter", () => {
+    process.env.MCP_BASE_URL = "https://example.test/base/";
+    expect(getMcpBaseUrl()).toBe("https://example.test/base");
+
+    process.env.MCP_BASE_URL = "not-a-url";
+    expect(() => getMcpBaseUrl()).toThrow("MCP_BASE_URL");
   });
 });
 

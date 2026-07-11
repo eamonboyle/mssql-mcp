@@ -13,15 +13,8 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 dotenv.config();
 
 import {
-  getMaxRows,
-  getMcpHttpHost,
-  getMcpHttpPort,
-  getMcpTransport,
-  getMaxWriteRows,
-  getQueryTimeoutMs,
-  isDdlEnabled,
-  isReadOnly,
-  isWritePreviewRequired,
+  type EnvironmentConfig,
+  getMcpEndpointUrl,
   parseEnvironmentConfig,
 } from "./config.js";
 import { getAllowedDatabases } from "./db.js";
@@ -53,8 +46,11 @@ function createInstructions(isReadOnly: boolean) {
     : baseInstructions;
 }
 
-function createServerInstance(state: ServerState) {
-  const readOnly = isReadOnly();
+function createServerInstance(
+  state: ServerState,
+  environment: EnvironmentConfig
+) {
+  const readOnly = environment.readOnly;
   const allowedDatabases = getAllowedDatabases();
   const availableTools = getAvailableTools(readOnly);
   const server = new McpServer(
@@ -91,7 +87,7 @@ function createServerInstance(state: ServerState) {
         annotations: definition.annotations,
       },
       async (args, extra) => {
-        if (definition.requiresDdl && !isDdlEnabled()) {
+        if (definition.requiresDdl && !environment.enableDdl) {
           return createToolResult({
             version: 1,
             success: false,
@@ -128,7 +124,10 @@ function createServerInstance(state: ServerState) {
             });
 
             if (elicited.action !== "accept" || !elicited.content?.confirmed) {
-              if (definition.writePreviewTool && isWritePreviewRequired()) {
+              if (
+                definition.writePreviewTool &&
+                environment.requireWritePreview
+              ) {
                 return createToolResult({
                   version: 1,
                   success: false,
@@ -155,7 +154,10 @@ function createServerInstance(state: ServerState) {
 
             requestArgs.confirmed = true;
           } catch {
-            if (definition.writePreviewTool && isWritePreviewRequired()) {
+            if (
+              definition.writePreviewTool &&
+              environment.requireWritePreview
+            ) {
               return createToolResult({
                 version: 1,
                 success: false,
@@ -219,11 +221,11 @@ function createServerInstance(state: ServerState) {
             });
           }
 
-          if (preview.affectedRowCount > getMaxWriteRows()) {
+          if (preview.affectedRowCount > environment.maxWriteRows) {
             return createToolResult({
               version: 1,
               success: false,
-              message: `Write exceeds MAX_WRITE_ROWS (${getMaxWriteRows()}). Matching rows: ${preview.affectedRowCount}. Narrow the filters or raise MAX_WRITE_ROWS.`,
+              message: `Write exceeds MAX_WRITE_ROWS (${environment.maxWriteRows}). Matching rows: ${preview.affectedRowCount}. Narrow the filters or raise MAX_WRITE_ROWS.`,
               error: {
                 code: "WRITE_LIMIT_EXCEEDED",
               },
@@ -233,7 +235,7 @@ function createServerInstance(state: ServerState) {
             });
           }
 
-          if (isWritePreviewRequired()) {
+          if (environment.requireWritePreview) {
             const writeName = definition.tool.name as
               "update_data" | "delete_data";
             const fingerprint = fingerprintForWriteTool(writeName, requestArgs);
@@ -268,11 +270,11 @@ function createServerInstance(state: ServerState) {
           const rows = Array.isArray(requestArgs.data)
             ? requestArgs.data.length
             : 1;
-          if (rows > getMaxWriteRows()) {
+          if (rows > environment.maxWriteRows) {
             return createToolResult({
               version: 1,
               success: false,
-              message: `Insert exceeds MAX_WRITE_ROWS (${getMaxWriteRows()}). Requested rows: ${rows}.`,
+              message: `Insert exceeds MAX_WRITE_ROWS (${environment.maxWriteRows}). Requested rows: ${rows}.`,
               error: {
                 code: "WRITE_LIMIT_EXCEEDED",
               },
@@ -302,7 +304,7 @@ function createServerInstance(state: ServerState) {
         if (
           (definition.tool.name === "preview_update" ||
             definition.tool.name === "preview_delete") &&
-          isWritePreviewRequired() &&
+          environment.requireWritePreview &&
           typeof rawResult === "object" &&
           rawResult !== null &&
           (rawResult as { success?: boolean }).success === true
@@ -441,8 +443,17 @@ function createServerInstance(state: ServerState) {
     isReadOnly: readOnly,
     allowedDatabases,
     toolNames: availableTools.map((tool) => tool.tool.name),
-    maxRows: getMaxRows(),
-    queryTimeoutMs: getQueryTimeoutMs(),
+    maxRows: environment.maxRows,
+    queryTimeoutMs: environment.queryTimeoutMs,
+    transport: environment.mcpTransport,
+    publicEndpoint:
+      environment.mcpTransport === "http"
+        ? getMcpEndpointUrl(environment)
+        : undefined,
+    encrypt: environment.encrypt,
+    trustServerCertificate: environment.trustServerCertificate,
+    enableDdl: environment.enableDdl,
+    requireWritePreview: environment.requireWritePreview,
     state,
   });
   registerPrompts(server, { isReadOnly: readOnly });
@@ -468,8 +479,12 @@ async function readRequestBody(req: IncomingMessage) {
   return JSON.parse(raw);
 }
 
-async function handleHttpRequest(req: IncomingMessage, res: ServerResponse) {
-  const server = createServerInstance(new ServerState());
+async function handleHttpRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  environment: EnvironmentConfig
+) {
+  const server = createServerInstance(new ServerState(), environment);
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
   });
@@ -500,18 +515,20 @@ async function handleHttpRequest(req: IncomingMessage, res: ServerResponse) {
   }
 }
 
-async function runStdioServer() {
-  const server = createServerInstance(new ServerState());
+async function runStdioServer(environment: EnvironmentConfig) {
+  const server = createServerInstance(new ServerState(), environment);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
-async function runHttpServer() {
-  const host = getMcpHttpHost();
-  const port = getMcpHttpPort();
+async function runHttpServer(environment: EnvironmentConfig) {
+  const host = environment.mcpHttpHost;
+  const port = environment.mcpHttpPort;
+  const localEndpoint = `http://${host}:${port}/mcp`;
+  const publicEndpoint = getMcpEndpointUrl(environment);
 
   const httpServer = createServer((req, res) => {
-    void handleHttpRequest(req, res);
+    void handleHttpRequest(req, res, environment);
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -519,20 +536,21 @@ async function runHttpServer() {
     httpServer.listen(port, host, () => resolve());
   });
 
-  console.error(
-    `MCP Streamable HTTP server listening on http://${host}:${port}`
-  );
+  console.error(`MCP Streamable HTTP server listening on ${localEndpoint}`);
+  if (publicEndpoint !== localEndpoint) {
+    console.error(`Public MCP endpoint: ${publicEndpoint}`);
+  }
 }
 
 async function main() {
-  parseEnvironmentConfig();
+  const environment = parseEnvironmentConfig();
 
-  if (getMcpTransport() === "http") {
-    await runHttpServer();
+  if (environment.mcpTransport === "http") {
+    await runHttpServer(environment);
     return;
   }
 
-  await runStdioServer();
+  await runStdioServer(environment);
 }
 
 main().catch((error) => {

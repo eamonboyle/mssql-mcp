@@ -62,7 +62,7 @@ export function buildSqlConfig(
     password: environment.dbPassword,
     requestTimeout: environment.queryTimeoutMs,
     options: {
-      encrypt: false,
+      encrypt: environment.encrypt,
       trustServerCertificate: environment.trustServerCertificate,
       enableArithAbort: true,
       useUTC: false,
@@ -86,7 +86,7 @@ async function resolveConfiguredDatabase(
     const configurationHint =
       allowed.length > 0
         ? `Allowed: ${allowed.join(", ")}.`
-        : "Set DATABASE_NAME or DATABASES to configure database access.";
+        : "Set both DATABASE_NAME and DATABASES to configure database access.";
 
     return {
       databaseName: "",

@@ -1,4 +1,7 @@
-import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  McpServer,
+  ResourceTemplate,
+} from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   describeObjectDependencies,
   describeDatabaseObject,
@@ -31,6 +34,12 @@ export interface ResourceRegistryContext {
   toolNames: string[];
   maxRows: number;
   queryTimeoutMs: number;
+  transport: "stdio" | "http";
+  publicEndpoint?: string;
+  encrypt: boolean;
+  trustServerCertificate: boolean;
+  enableDdl: boolean;
+  requireWritePreview: boolean;
   state: ServerState;
 }
 
@@ -114,6 +123,12 @@ async function readResourcePayload(
           allowedDatabases: context.allowedDatabases,
           maxRows: context.maxRows,
           queryTimeoutMs: context.queryTimeoutMs,
+          transport: context.transport,
+          publicEndpoint: context.publicEndpoint,
+          encrypt: context.encrypt,
+          trustServerCertificate: context.trustServerCertificate,
+          enableDdl: context.enableDdl,
+          requireWritePreview: context.requireWritePreview,
         },
         tools: context.toolNames,
       };
@@ -216,7 +231,8 @@ async function readResourcePayload(
     parsed.segments[1] === "object" &&
     parsed.segments[4] === "dependencies"
   ) {
-    const [databaseName, _objectKeyword, schemaName, objectName] = parsed.segments;
+    const [databaseName, _objectKeyword, schemaName, objectName] =
+      parsed.segments;
     return {
       databaseName,
       schemaName,
@@ -237,7 +253,11 @@ function buildReadHandler(
   getCachedValue: <T>(key: string, loader: () => Promise<T>) => Promise<T>
 ) {
   return async (uri: URL) => {
-    const payload = await readResourcePayload(uri.href, context, getCachedValue);
+    const payload = await readResourcePayload(
+      uri.href,
+      context,
+      getCachedValue
+    );
 
     return {
       contents: [
@@ -297,8 +317,7 @@ export function registerResources(
       `mssql://database/${encodeURIComponent(databaseName)}/objects`,
       {
         title: `${databaseName} Objects`,
-        description:
-          `Tables, views, procedures, functions, and triggers available in database ${databaseName}.`,
+        description: `Tables, views, procedures, functions, and triggers available in database ${databaseName}.`,
         mimeType: "application/json",
       },
       readHandler
@@ -334,8 +353,9 @@ export function registerResources(
         resources: (
           await Promise.all(
             context.allowedDatabases.map(async (databaseName) => {
-              const tables = await getCachedValue(`tables:${databaseName}`, () =>
-                listDatabaseTables(databaseName)
+              const tables = await getCachedValue(
+                `tables:${databaseName}`,
+                () => listDatabaseTables(databaseName)
               );
               return tables.map((table) => ({
                 uri: `mssql://table/${encodeURIComponent(databaseName)}/${encodeURIComponent(table.schemaName)}/${encodeURIComponent(table.tableName)}`,
@@ -498,5 +518,4 @@ export function registerResources(
     },
     readHandler
   );
-
 }

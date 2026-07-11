@@ -4,7 +4,7 @@ function formatConfiguredDatabasesMessage(
   databases: Array<{ name: string; isDefault: boolean }>
 ): string {
   if (databases.length === 0) {
-    return "No databases are configured. Set DATABASE_NAME or DATABASES in the environment.";
+    return "No databases are configured. Set both DATABASE_NAME and DATABASES in the environment.";
   }
 
   const labels = databases.map((d) =>
@@ -15,8 +15,7 @@ function formatConfiguredDatabasesMessage(
 
 export class ListDatabasesTool {
   name = "list_databases";
-  description =
-    "Lists the databases this MCP server is configured to access.";
+  description = "Lists the databases this MCP server is configured to access.";
 
   async run() {
     const databases = listConfiguredDatabases();

@@ -233,7 +233,7 @@ describe("getSqlRequest", () => {
     const result = await getSqlRequest();
 
     expect(result.error).toBe(
-      "Invalid or disallowed database. Set DATABASE_NAME or DATABASES to configure database access. Use the databaseName parameter to target a specific configured database."
+      "Invalid or disallowed database. Set both DATABASE_NAME and DATABASES to configure database access. Use the databaseName parameter to target a specific configured database."
     );
   });
 
@@ -356,6 +356,20 @@ describe("buildSqlConfig", () => {
         enableArithAbort: true,
         useUTC: false,
       },
+    });
+  });
+
+  it("enables encrypted driver connections when ENCRYPT=true", () => {
+    Object.assign(process.env, {
+      ENCRYPT: "true",
+      TRUST_SERVER_CERTIFICATE: "true",
+    });
+
+    const config = buildSqlConfig("AppDB", parseEnvironmentConfig(process.env));
+
+    expect(config.options).toMatchObject({
+      encrypt: true,
+      trustServerCertificate: true,
     });
   });
 });
