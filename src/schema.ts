@@ -261,12 +261,12 @@ export async function describeDatabaseObject(
   const detailRecordsets = Array.isArray(detailsResult.recordsets)
     ? detailsResult.recordsets
     : [];
-  const columnsRecordset = (Array.isArray(detailRecordsets[0])
-    ? detailRecordsets[0]
-    : []) as DatabaseObjectDescription["columns"];
-  const indexesRecordset = (Array.isArray(detailRecordsets[1])
-    ? detailRecordsets[1]
-    : []) as Array<{
+  const columnsRecordset = (
+    Array.isArray(detailRecordsets[0]) ? detailRecordsets[0] : []
+  ) as DatabaseObjectDescription["columns"];
+  const indexesRecordset = (
+    Array.isArray(detailRecordsets[1]) ? detailRecordsets[1] : []
+  ) as Array<{
     name: string;
     type: string;
     isUnique: boolean;
@@ -376,7 +376,10 @@ export async function getDatabaseSchemaSummary(
   } satisfies SchemaSummaryResult;
 }
 
-export async function listForeignKeys(databaseName?: string, schemaName?: string) {
+export async function listForeignKeys(
+  databaseName?: string,
+  schemaName?: string
+) {
   const { request, error } = await getSqlRequest(databaseName);
   if (error) {
     throw new Error(error);
@@ -584,7 +587,8 @@ export async function analyzeTable(
       : [];
 
   return {
-    summary: (recordsets[0]?.[0] as Record<string, unknown> | undefined) ?? null,
+    summary:
+      (recordsets[0]?.[0] as Record<string, unknown> | undefined) ?? null,
     indexes,
   };
 }
