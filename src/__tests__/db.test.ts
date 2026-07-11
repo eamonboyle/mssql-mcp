@@ -247,9 +247,9 @@ describe("getSqlRequest", () => {
     );
   });
 
-  it("returns a request using the resolved default database", async () => {
+  it("returns a request using the configured default database", async () => {
     process.env.DATABASES = "ProdDBDefault,StagingDB";
-    delete process.env.DATABASE_NAME;
+    process.env.DATABASE_NAME = "ProdDBDefault";
 
     const result = await getSqlRequest();
 
