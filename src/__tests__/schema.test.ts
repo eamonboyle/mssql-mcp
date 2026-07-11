@@ -39,7 +39,11 @@ vi.mock("../db.js", () => ({
   }),
 }));
 
-import { describeDatabaseObject, listForeignKeys } from "../schema.js";
+import {
+  describeDatabaseObject,
+  listForeignKeys,
+  listLargestTables,
+} from "../schema.js";
 
 describe("describeDatabaseObject", () => {
   beforeEach(() => {
@@ -145,6 +149,23 @@ describe("describeDatabaseObject", () => {
     });
     expect(schemaMockState.getSqlRequestCalls).toBe(1);
     expect(schemaMockState.queryCalls).toHaveLength(2);
+  });
+});
+
+describe("listLargestTables", () => {
+  beforeEach(() => {
+    schemaMockState.getSqlRequestCalls = 0;
+    schemaMockState.inputCalls.length = 0;
+    schemaMockState.queryCalls.length = 0;
+    schemaMockState.queryResults.length = 0;
+  });
+
+  it("escapes the rowCount alias because ROWCOUNT is a SQL keyword", async () => {
+    schemaMockState.queryResults.push({ recordset: [] });
+
+    await listLargestTables(5, "AppDB", "dbo");
+
+    expect(schemaMockState.queryCalls[0]).toContain("AS [rowCount]");
   });
 });
 
