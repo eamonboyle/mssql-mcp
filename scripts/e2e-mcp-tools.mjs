@@ -141,7 +141,7 @@ async function runTool(tool, args, assertFn) {
   }
 }
 
-function printReport() {
+function printReport(registeredToolCount) {
   const pass = results.filter((r) => r.status === "PASS").length;
   const fail = results.filter((r) => r.status === "FAIL").length;
   const skip = results.filter((r) => r.status === "SKIP").length;
@@ -153,7 +153,8 @@ function printReport() {
     const detail = row.detail ? ` — ${row.detail}` : "";
     console.log(`${row.tool.padEnd(nameWidth)}  ${status}${detail}`);
   }
-  console.log(`\nTotal: ${results.length} | PASS: ${pass} | FAIL: ${fail} | SKIP: ${skip}`);
+  console.log(`\nUnique registered tools: ${registeredToolCount}`);
+  console.log(`Tool invocations: ${results.length} | PASS: ${pass} | FAIL: ${fail} | SKIP: ${skip}`);
 
   if (fail > 0) {
     process.exitCode = 1;
@@ -369,7 +370,7 @@ async function main() {
     }
   }
 
-  printReport();
+  printReport(registered.length);
 }
 
 main().catch((error) => {
