@@ -19,6 +19,7 @@ import {
   parseEnvironmentConfig,
 } from "./config.js";
 import { configureDatabase, getAllowedDatabases } from "./db.js";
+import { getPackageVersion } from "./packageInfo.js";
 import {
   createResourceLink,
   createToolResult,
@@ -32,9 +33,9 @@ import { getAvailableTools } from "./toolRegistry.js";
 import { fingerprintForWriteTool } from "./writePreviewGrant.js";
 import { writePreviewGrantStore } from "./writePreviewGrantStore.js";
 import { previewFilteredRows } from "./writePreview.js";
+import { MCP_SERVER_NAME } from "./serverConstants.js";
 
-const SERVER_VERSION = "1.6.0";
-const SERVER_NAME = "mssql-mcp-server";
+const SERVER_VERSION = getPackageVersion();
 
 function createInstructions(isReadOnly: boolean) {
   const baseInstructions =
@@ -56,7 +57,7 @@ function createServerInstance(
   const availableTools = getAvailableTools(readOnly);
   const server = new McpServer(
     {
-      name: SERVER_NAME,
+      name: MCP_SERVER_NAME,
       version: SERVER_VERSION,
       websiteUrl: "https://github.com/eamonboyle/mssql-mcp",
       icons: [
@@ -439,7 +440,7 @@ function createServerInstance(
   }
 
   registerResources(server, {
-    serverName: SERVER_NAME,
+    serverName: MCP_SERVER_NAME,
     serverVersion: SERVER_VERSION,
     isReadOnly: readOnly,
     allowedDatabases,

@@ -103,6 +103,7 @@ describe("toolRegistry write schemas", () => {
 
   it("registers discovery tools as read-only", () => {
     for (const name of [
+      "server_about",
       "summarize_schema",
       "describe_dependencies",
       "list_largest_tables",

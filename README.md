@@ -17,6 +17,7 @@
 Key capabilities:
 
 - Schema, object, relationship, dependency, and storage discovery
+- `server_about` for confirming the running package version and release highlights
 - Validated reads, parameterized searches, and estimated execution plans
 - Insert, update, and delete tools with confirmation and row limits
 - Preview tokens for update and delete operations
@@ -232,6 +233,7 @@ Cursor HTTP configuration:
 
 | Tool                     | Mode  | Purpose                                                          |
 | ------------------------ | ----- | ---------------------------------------------------------------- |
+| `server_about`           | Read  | Package version, release date, and latest release highlights     |
 | `list_databases`         | Read  | List configured databases                                        |
 | `list_table`             | Read  | List tables, optionally filtered by schema names in `parameters` |
 | `describe_table`         | Read  | Describe a table schema                                          |

@@ -22,6 +22,7 @@ import { PreviewDeleteTool } from "./tools/PreviewDeleteTool.js";
 import { PreviewUpdateTool } from "./tools/PreviewUpdateTool.js";
 import { ReadDataTool } from "./tools/ReadDataTool.js";
 import { SearchDataTool } from "./tools/SearchDataTool.js";
+import { ServerAboutTool } from "./tools/ServerAboutTool.js";
 import { SummarizeSchemaTool } from "./tools/SummarizeSchemaTool.js";
 import { UpdateDataTool } from "./tools/UpdateDataTool.js";
 import { SQL_FILTER_OPERATORS } from "./writeSafety.js";
@@ -87,6 +88,7 @@ const filterSchema = z
     }
   });
 
+const serverAboutTool = new ServerAboutTool();
 const listTableTool = new ListTableTool();
 const describeTableTool = new DescribeTableTool();
 const listObjectsTool = new ListObjectsTool();
@@ -167,6 +169,16 @@ const objectNameSchema = completable(
 );
 
 export const toolDefinitions: ToolDefinition[] = [
+  {
+    tool: serverAboutTool,
+    readOnly: true,
+    outputSchema: toolResultOutputSchema,
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+    },
+    inputSchema: z.object({}).strict(),
+  },
   {
     tool: listDatabasesTool,
     readOnly: true,

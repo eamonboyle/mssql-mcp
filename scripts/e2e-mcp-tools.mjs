@@ -177,6 +177,11 @@ async function main() {
   const scratchTable = `McpE2e_${Date.now()}`;
   const scratchIndex = `IX_${scratchTable}_Id`;
 
+  // --- Server metadata ---
+  await runTool("server_about", {}, ({ payload }) =>
+    typeof payload?.data?.version === "string" && payload.data.version.length > 0
+  );
+
   // --- Discovery & schema (read-only) ---
   await runTool("list_databases", {}, ({ payload }) => {
     const names = rowsFromPayload(payload).map((d) => d.name ?? d);
