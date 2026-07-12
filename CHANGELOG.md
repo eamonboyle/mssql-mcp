@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-07-12
+
+### Added
+
+- MCP tool: `server_about` — returns package version, release date, and latest release highlights so agents can confirm which build is running.
+- `RELEASE_META` release highlights block (kept in sync with `package.json` version via tests).
+- E2E harness coverage for `server_about`.
+
+### Changed
+
+- Server version is read from `package.json` at runtime via `getPackageVersion()` instead of a hardcoded string.
+
 ## [1.6.0] - 2026-07-12
 
 ### Added
