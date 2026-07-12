@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-07-12
+
+### Added
+
+- Optional `SERVER_PORT` support for SQL Server instances on non-default TCP ports. Configurations without it continue to use the driver default port of `1433`.
+- Optional `ENCRYPT` configuration for TLS-enabled SQL Server connections. The default remains `false` for backward compatibility.
+- Operational `MCP_BASE_URL` support for advertising a normalized public `/mcp` endpoint in HTTP startup output and the redacted `mssql://config/server` resource.
+- Server configuration resource metadata for transport, encryption, certificate trust, DDL, and write-preview settings.
+
+### Changed
+
+- Startup uses one validated environment snapshot for transport, database access, safety, limits, resource metadata, and SQL connection pools.
+- Omitted or blank `SERVER_NAME` values retain the existing `localhost` default, and blank optional values continue to use their documented defaults.
+- Existing database configurations remain supported: set `DATABASE_NAME`, `DATABASES`, or both. When only `DATABASE_NAME` is present it becomes the single allowed database; when only `DATABASES` is present its first entry is the default.
+- `READONLY=false`, `ENABLE_DDL=false`, and `TRUST_SERVER_CERTIFICATE=true` remain the defaults when those variables are omitted. Explicit invalid boolean values still fail startup.
+- Cursor, VS Code, Claude Desktop, and MCP configuration samples use credential placeholders and keep DDL disabled, with advanced settings documented separately.
+- Connection, safety, transport, tool, resource, and development documentation has been audited and simplified.
+
+### Fixed
+
+- `list_largest_tables` now escapes the `rowCount` alias so it does not conflict with the T-SQL `ROWCOUNT` keyword.
+- `TRUST_SERVER_CERTIFICATE=false` is now honored instead of being silently overridden to `true`.
+- Invalid explicit values for optional settings (`SERVER_PORT`, `ENCRYPT`, timeouts, row limits, `MCP_TRANSPORT`, `MCP_HTTP_PORT`, `MCP_BASE_URL`) now fail with actionable startup errors instead of silently falling back.
+
 ## [1.5.0] - 2026-07-09
 
 ### Added

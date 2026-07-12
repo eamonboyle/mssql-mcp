@@ -15,8 +15,7 @@ function formatConfiguredDatabasesMessage(
 
 export class ListDatabasesTool {
   name = "list_databases";
-  description =
-    "Lists the databases this MCP server is configured to access.";
+  description = "Lists the databases this MCP server is configured to access.";
 
   async run() {
     const databases = listConfiguredDatabases();
