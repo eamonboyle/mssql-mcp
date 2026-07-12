@@ -41,9 +41,10 @@ vi.mock("mssql", () => {
   };
 });
 
-import { parseEnvironmentConfig } from "../config.js";
+import { parseSqlConnectionConfig } from "../config.js";
 import {
   buildSqlConfig,
+  configureSqlConnection,
   getAllowedDatabases,
   getSqlRequest,
   resolveDatabaseName,
@@ -68,6 +69,7 @@ describe("getAllowedDatabases", () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     setRequiredEnvironment();
+    configureSqlConnection(parseSqlConnectionConfig(process.env));
     mssqlMockState.poolConfigs.length = 0;
     mssqlMockState.connectCalls.mockClear();
     mssqlMockState.closeCalls.mockClear();
@@ -233,7 +235,7 @@ describe("getSqlRequest", () => {
     const result = await getSqlRequest();
 
     expect(result.error).toBe(
-      "Invalid or disallowed database. Set both DATABASE_NAME and DATABASES to configure database access. Use the databaseName parameter to target a specific configured database."
+      "Invalid or disallowed database. Set DATABASE_NAME or DATABASES to configure database access. Use the databaseName parameter to target a specific configured database."
     );
   });
 
@@ -263,6 +265,18 @@ describe("getSqlRequest", () => {
     );
     expect(mssqlMockState.requestCalls).toHaveBeenCalledWith(
       expect.objectContaining({ database: "ProdDBDefault" })
+    );
+  });
+
+  it("reuses the startup-validated SQL connection configuration", async () => {
+    configureSqlConnection(parseSqlConnectionConfig(process.env));
+    process.env.SERVER_NAME = "changed-after-startup";
+
+    const result = await getSqlRequest("AppDB");
+
+    expect(result.error).toBeUndefined();
+    expect(mssqlMockState.poolConfigs).toContainEqual(
+      expect.objectContaining({ server: "localhost", database: "AppDB" })
     );
   });
 
@@ -301,7 +315,10 @@ describe("buildSqlConfig", () => {
   it("builds a host-only connection without an explicit port", () => {
     delete process.env.SERVER_PORT;
 
-    const config = buildSqlConfig("AppDB", parseEnvironmentConfig(process.env));
+    const config = buildSqlConfig(
+      "AppDB",
+      parseSqlConnectionConfig(process.env)
+    );
 
     expect(config.server).toBe("localhost");
     expect(config).not.toHaveProperty("port");
@@ -313,7 +330,10 @@ describe("buildSqlConfig", () => {
   ])("passes SERVER_PORT=%s separately as port %i", (value, expected) => {
     process.env.SERVER_PORT = value;
 
-    const config = buildSqlConfig("AppDB", parseEnvironmentConfig(process.env));
+    const config = buildSqlConfig(
+      "AppDB",
+      parseSqlConnectionConfig(process.env)
+    );
 
     expect(config.server).toBe("localhost");
     expect(config.port).toBe(expected);
@@ -323,7 +343,10 @@ describe("buildSqlConfig", () => {
     process.env.SERVER_NAME = "localhost,1434";
     delete process.env.SERVER_PORT;
 
-    const config = buildSqlConfig("AppDB", parseEnvironmentConfig(process.env));
+    const config = buildSqlConfig(
+      "AppDB",
+      parseSqlConnectionConfig(process.env)
+    );
 
     expect(config.server).toBe("localhost,1434");
     expect(config).not.toHaveProperty("port");
@@ -340,7 +363,7 @@ describe("buildSqlConfig", () => {
 
     const config = buildSqlConfig(
       "ReportingDB",
-      parseEnvironmentConfig(process.env)
+      parseSqlConnectionConfig(process.env)
     );
 
     expect(config).toMatchObject({
@@ -365,7 +388,10 @@ describe("buildSqlConfig", () => {
       TRUST_SERVER_CERTIFICATE: "true",
     });
 
-    const config = buildSqlConfig("AppDB", parseEnvironmentConfig(process.env));
+    const config = buildSqlConfig(
+      "AppDB",
+      parseSqlConnectionConfig(process.env)
+    );
 
     expect(config.options).toMatchObject({
       encrypt: true,

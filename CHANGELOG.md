@@ -5,35 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.0] - 2026-07-11
+## [1.6.0] - 2026-07-12
 
 ### Added
 
+- Optional `SERVER_PORT` support for SQL Server instances on non-default TCP ports. Configurations without it continue to use the driver default port of `1433`.
 - Optional `ENCRYPT` configuration for TLS-enabled SQL Server connections. The default remains `false` for backward compatibility.
 - Operational `MCP_BASE_URL` support for advertising a normalized public `/mcp` endpoint in HTTP startup output and the redacted `mssql://config/server` resource.
 - Server configuration resource metadata for transport, encryption, certificate trust, DDL, and write-preview settings.
 
 ### Changed
 
-- Startup uses one validated environment snapshot for transport, safety, limits, and resource metadata.
-- Upgrade note: `DATABASE_NAME` and `DATABASES` are both required. Add the default database to the comma-separated allowlist when migrating older single-database configurations.
+- Startup uses one validated environment snapshot for transport, safety, limits, resource metadata, and SQL connection pools.
+- Existing database configurations remain supported: set `DATABASE_NAME`, `DATABASES`, or both. When only `DATABASE_NAME` is present it becomes the single allowed database; when only `DATABASES` is present its first entry is the default.
+- `READONLY=false`, `ENABLE_DDL=false`, and `TRUST_SERVER_CERTIFICATE=true` remain the defaults when those variables are omitted. Explicit invalid boolean values still fail startup.
+- Cursor, VS Code, Claude Desktop, and MCP configuration samples now contain only required variables, with advanced settings documented separately.
+- Connection, safety, transport, tool, resource, and development documentation has been audited and simplified.
 
 ### Fixed
 
 - `list_largest_tables` now escapes the `rowCount` alias so it does not conflict with the T-SQL `ROWCOUNT` keyword.
-- Database configuration errors now consistently explain that both `DATABASE_NAME` and `DATABASES` are required.
-
-## [1.5.1] - 2026-07-11
-
-### Added
-
-- Optional `SERVER_PORT` support for SQL Server instances on non-default TCP ports. Configurations without it continue to use the driver default port of `1433`.
-
-### Changed
-
-- Environment configuration now validates required values and booleans at startup, applies optional defaults in code, and rejects invalid explicit TCP ports.
-- Cursor, VS Code, Claude Desktop, and MCP configuration samples now contain only required variables, with advanced settings documented separately.
-- Connection, safety, transport, tool, resource, and development documentation has been audited and simplified.
+- `TRUST_SERVER_CERTIFICATE=false` is now honored instead of being silently overridden to `true`.
+- Invalid explicit values for optional settings (`SERVER_PORT`, `ENCRYPT`, timeouts, row limits, `MCP_TRANSPORT`, `MCP_HTTP_PORT`, `MCP_BASE_URL`) now fail with actionable startup errors instead of silently falling back.
 
 ## [1.5.0] - 2026-07-09
 

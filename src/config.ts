@@ -10,19 +10,22 @@ type Environment = NodeJS.ProcessEnv;
 
 export type McpTransportMode = "stdio" | "http";
 
-export interface EnvironmentConfig {
+export interface SqlConnectionConfig {
   serverName: string;
   serverPort?: number;
-  databaseName: string;
-  databases: string[];
   dbUser: string;
   dbPassword: string;
   encrypt: boolean;
   trustServerCertificate: boolean;
-  readOnly: boolean;
-  enableDdl: boolean;
   connectionTimeoutSeconds: number;
   queryTimeoutMs: number;
+}
+
+export interface EnvironmentConfig extends SqlConnectionConfig {
+  databaseName: string;
+  databases: string[];
+  readOnly: boolean;
+  enableDdl: boolean;
   maxRows: number;
   maxWriteRows: number;
   requireWritePreview: boolean;
@@ -43,9 +46,14 @@ function parseInteger(
     return fallback;
   }
 
+  const range =
+    maximum !== undefined
+      ? `between ${minimum} and ${maximum}`
+      : `of at least ${minimum}`;
+
   const normalized = value.trim();
   if (!/^\d+$/.test(normalized)) {
-    throw new Error(`${name} must be a whole number of at least ${minimum}.`);
+    throw new Error(`${name} must be a whole number ${range}.`);
   }
 
   const parsed = Number(normalized);
@@ -54,9 +62,6 @@ function parseInteger(
     parsed < minimum ||
     (maximum !== undefined && parsed > maximum)
   ) {
-    const range = maximum
-      ? `between ${minimum} and ${maximum}`
-      : `of at least ${minimum}`;
     throw new Error(`${name} must be a whole number ${range}.`);
   }
 
@@ -154,31 +159,20 @@ export function parseDatabaseList(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
-export function parseEnvironmentConfig(
+export function parseSqlConnectionConfig(
   env: Environment = process.env
-): EnvironmentConfig {
-  const databasesValue = parseRequiredString("DATABASES", env.DATABASES);
-  const databases = parseDatabaseList(databasesValue);
-  if (databases.length === 0) {
-    throw new Error(
-      "DATABASES is required and must contain at least one database name."
-    );
-  }
-
+): SqlConnectionConfig {
   return {
     serverName: parseRequiredString("SERVER_NAME", env.SERVER_NAME),
     serverPort: parseServerPort(env.SERVER_PORT),
-    databaseName: parseRequiredString("DATABASE_NAME", env.DATABASE_NAME),
-    databases,
     dbUser: parseRequiredString("DB_USER", env.DB_USER),
     dbPassword: parseRequiredString("DB_PASSWORD", env.DB_PASSWORD),
     encrypt: parseBoolean("ENCRYPT", env.ENCRYPT, false),
     trustServerCertificate: parseBoolean(
       "TRUST_SERVER_CERTIFICATE",
-      env.TRUST_SERVER_CERTIFICATE
+      env.TRUST_SERVER_CERTIFICATE,
+      true
     ),
-    readOnly: parseBoolean("READONLY", env.READONLY),
-    enableDdl: parseBoolean("ENABLE_DDL", env.ENABLE_DDL),
     connectionTimeoutSeconds: parseInteger(
       "CONNECTION_TIMEOUT",
       env.CONNECTION_TIMEOUT,
@@ -189,6 +183,37 @@ export function parseEnvironmentConfig(
       env.QUERY_TIMEOUT_MS,
       DEFAULT_QUERY_TIMEOUT_MS
     ),
+  };
+}
+
+export function parseEnvironmentConfig(
+  env: Environment = process.env
+): EnvironmentConfig {
+  const explicitDefault = env.DATABASE_NAME?.trim();
+  const configuredDatabases = parseDatabaseList(env.DATABASES);
+  const databases =
+    configuredDatabases.length > 0
+      ? configuredDatabases
+      : explicitDefault
+        ? [explicitDefault]
+        : [];
+  if (databases.length === 0) {
+    throw new Error(
+      "At least one of DATABASE_NAME or DATABASES is required and must contain a database name."
+    );
+  }
+
+  const databaseName =
+    explicitDefault && databases.includes(explicitDefault)
+      ? explicitDefault
+      : databases[0];
+
+  return {
+    ...parseSqlConnectionConfig(env),
+    databaseName,
+    databases,
+    readOnly: parseBoolean("READONLY", env.READONLY, false),
+    enableDdl: parseBoolean("ENABLE_DDL", env.ENABLE_DDL, false),
     maxRows: parseInteger("MAX_ROWS", env.MAX_ROWS, DEFAULT_MAX_ROWS),
     maxWriteRows: parseInteger(
       "MAX_WRITE_ROWS",
@@ -224,29 +249,6 @@ function parseMcpTransport(value: string | undefined): McpTransportMode {
   }
 
   throw new Error('MCP_TRANSPORT must be either "stdio" or "http".');
-}
-
-export function getServerPort(): number | undefined {
-  return parseServerPort(process.env.SERVER_PORT);
-}
-
-export function getConnectionTimeoutSeconds(): number {
-  return parseInteger(
-    "CONNECTION_TIMEOUT",
-    process.env.CONNECTION_TIMEOUT,
-    DEFAULT_CONNECTION_TIMEOUT_SECONDS
-  );
-}
-
-export function getTrustServerCertificate(): boolean {
-  return parseBoolean(
-    "TRUST_SERVER_CERTIFICATE",
-    process.env.TRUST_SERVER_CERTIFICATE
-  );
-}
-
-export function isReadOnly(): boolean {
-  return parseBoolean("READONLY", process.env.READONLY);
 }
 
 export function getMaxRows(): number {
@@ -315,7 +317,7 @@ export function getMcpEndpointUrl(
 }
 
 export function isDdlEnabled(): boolean {
-  return parseBoolean("ENABLE_DDL", process.env.ENABLE_DDL);
+  return parseBoolean("ENABLE_DDL", process.env.ENABLE_DDL, false);
 }
 
 export function getMaxWriteRows(): number {

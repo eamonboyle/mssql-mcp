@@ -17,7 +17,7 @@ import {
   getMcpEndpointUrl,
   parseEnvironmentConfig,
 } from "./config.js";
-import { getAllowedDatabases } from "./db.js";
+import { configureSqlConnection, getAllowedDatabases } from "./db.js";
 import {
   createResourceLink,
   createToolResult,
@@ -544,6 +544,7 @@ async function runHttpServer(environment: EnvironmentConfig) {
 
 async function main() {
   const environment = parseEnvironmentConfig();
+  configureSqlConnection(environment);
 
   if (environment.mcpTransport === "http") {
     await runHttpServer(environment);

@@ -111,15 +111,10 @@ The server validates these variables before starting. Missing, blank, or invalid
 | Variable                   | Accepted format        | Purpose                                                               |
 | -------------------------- | ---------------------- | --------------------------------------------------------------------- |
 | `SERVER_NAME`              | Nonblank hostname      | SQL Server hostname only, such as `localhost` or `server.example.com` |
-| `DATABASE_NAME`            | Nonblank database name | Default database used when a tool omits `databaseName`                |
-| `DATABASES`                | Comma-separated names  | Allowlist of databases this MCP server may access                     |
 | `DB_USER`                  | Nonblank string        | SQL authentication username                                           |
 | `DB_PASSWORD`              | Nonblank string        | SQL authentication password                                           |
-| `TRUST_SERVER_CERTIFICATE` | `"true"` or `"false"`  | Passed to the `mssql` connection option                               |
-| `READONLY`                 | `"true"` or `"false"`  | When true, write and DDL tools are not registered                     |
-| `ENABLE_DDL`               | `"true"` or `"false"`  | When true, registered DDL tools may execute                           |
 
-`DATABASE_NAME` should normally be present in `DATABASES`. If it is not, the first allowed database becomes the runtime default.
+At least one database variable is required: set `DATABASE_NAME`, `DATABASES`, or both. With only `DATABASE_NAME`, that database is both the default and the allowlist. With only `DATABASES`, the first entry is the default. When both are set, `DATABASE_NAME` is used if it appears in `DATABASES`; otherwise the first allowed database is the runtime default.
 
 ### Hostname and port
 
@@ -156,6 +151,9 @@ Optional variables do not need empty placeholders. In-code defaults apply when t
 | ----------------------- | ----------------------------- | --------------------- | -------------------------------------------------------------- |
 | `SERVER_PORT`           | Integer from `1` to `65535`   | Driver default `1433` | SQL Server TCP port; omitted from the driver config when unset |
 | `ENCRYPT`               | `"true"` or `"false"`         | `"false"`             | Enable TLS encryption in the `mssql` driver                    |
+| `TRUST_SERVER_CERTIFICATE` | `"true"` or `"false"`      | `"true"`              | Trust the SQL Server certificate without validating its chain |
+| `READONLY`              | `"true"` or `"false"`         | `"false"`             | Remove write and DDL tools when enabled                        |
+| `ENABLE_DDL`            | `"true"` or `"false"`         | `"false"`             | Allow registered DDL tools to execute                          |
 | `CONNECTION_TIMEOUT`    | Positive integer seconds      | `30`                  | SQL Server connection timeout                                  |
 | `QUERY_TIMEOUT_MS`      | Positive integer milliseconds | `30000`               | SQL request timeout                                            |
 | `MAX_ROWS`              | Positive integer              | `10000`               | Maximum rows returned by read tools                            |

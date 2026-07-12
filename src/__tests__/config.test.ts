@@ -10,7 +10,6 @@ import {
   getMaxRows,
   getMaxWriteRows,
   getQueryTimeoutMs,
-  getServerPort,
   isDdlEnabled,
   isWritePreviewRequired,
   parseEnvironmentConfig,
@@ -81,10 +80,20 @@ describe("config helpers", () => {
   });
 
   it("applies documented defaults when optional variables are absent", () => {
-    const config = parseEnvironmentConfig({ ...requiredEnvironment });
+    const config = parseEnvironmentConfig({
+      SERVER_NAME: "localhost",
+      DATABASE_NAME: "AppDB",
+      DB_USER: "sa",
+      DB_PASSWORD: "test-password",
+    });
 
     expect(config).toMatchObject({
+      databaseName: "AppDB",
+      databases: ["AppDB"],
       encrypt: false,
+      trustServerCertificate: true,
+      readOnly: false,
+      enableDdl: false,
       connectionTimeoutSeconds: 30,
       queryTimeoutMs: 30000,
       maxRows: 10000,
@@ -111,38 +120,56 @@ describe("config helpers", () => {
     expect(config.enableDdl).toBe(false);
   });
 
-  it.each([
-    "SERVER_NAME",
-    "DATABASE_NAME",
-    "DATABASES",
-    "DB_USER",
-    "DB_PASSWORD",
-    "TRUST_SERVER_CERTIFICATE",
-    "READONLY",
-    "ENABLE_DDL",
-  ])("rejects a missing required %s value", (name) => {
+  it.each(["SERVER_NAME", "DB_USER", "DB_PASSWORD"])(
+    "rejects a missing required %s value",
+    (name) => {
     const environment = { ...requiredEnvironment };
     delete environment[name as keyof typeof environment];
 
     expect(() => parseEnvironmentConfig(environment)).toThrow(name);
-  });
+    }
+  );
 
-  it.each([
-    "SERVER_NAME",
-    "DATABASE_NAME",
-    "DATABASES",
-    "DB_USER",
-    "DB_PASSWORD",
-    "TRUST_SERVER_CERTIFICATE",
-    "READONLY",
-    "ENABLE_DDL",
-  ])("rejects a blank required %s value", (name) => {
+  it.each(["SERVER_NAME", "DB_USER", "DB_PASSWORD"])(
+    "rejects a blank required %s value",
+    (name) => {
     expect(() =>
       parseEnvironmentConfig({
         ...requiredEnvironment,
         [name]: "   ",
       })
     ).toThrow(name);
+    }
+  );
+
+  it("uses DATABASES when DATABASE_NAME is absent", () => {
+    const config = parseEnvironmentConfig({
+      ...requiredEnvironment,
+      DATABASE_NAME: undefined,
+    });
+
+    expect(config.databaseName).toBe("AppDB");
+    expect(config.databases).toEqual(["AppDB", "ReportingDB"]);
+  });
+
+  it("uses DATABASE_NAME as the allowlist when DATABASES is absent", () => {
+    const config = parseEnvironmentConfig({
+      ...requiredEnvironment,
+      DATABASES: undefined,
+    });
+
+    expect(config.databaseName).toBe("AppDB");
+    expect(config.databases).toEqual(["AppDB"]);
+  });
+
+  it("rejects configuration when neither database variable is present", () => {
+    expect(() =>
+      parseEnvironmentConfig({
+        ...requiredEnvironment,
+        DATABASE_NAME: undefined,
+        DATABASES: undefined,
+      })
+    ).toThrow("At least one of DATABASE_NAME or DATABASES is required");
   });
 
   it.each(["TRUST_SERVER_CERTIFICATE", "READONLY", "ENABLE_DDL"])(
@@ -153,7 +180,7 @@ describe("config helpers", () => {
           ...requiredEnvironment,
           [name]: "yes",
         })
-      ).toThrow(`${name} is required and must be either "true" or "false".`);
+      ).toThrow(`${name} must be either "true" or "false".`);
     }
   );
 
@@ -276,15 +303,4 @@ describe("SERVER_PORT", () => {
       ).toThrow("SERVER_PORT must be a valid TCP port between 1 and 65535.");
     }
   );
-
-  it("uses the same validation in the direct getter", () => {
-    delete process.env.SERVER_PORT;
-    expect(getServerPort()).toBeUndefined();
-
-    process.env.SERVER_PORT = "1434";
-    expect(getServerPort()).toBe(1434);
-
-    process.env.SERVER_PORT = "1434abc";
-    expect(() => getServerPort()).toThrow("SERVER_PORT");
-  });
 });

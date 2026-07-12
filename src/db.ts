@@ -1,12 +1,23 @@
 import sql from "mssql";
 import {
-  type EnvironmentConfig,
+  type SqlConnectionConfig,
   parseDatabaseList,
-  parseEnvironmentConfig,
 } from "./config.js";
 
 // Connection pools keyed by database name
 const sqlPools = new Map<string, sql.ConnectionPool>();
+let sqlConnectionConfig: SqlConnectionConfig | undefined;
+
+export function configureSqlConnection(config: SqlConnectionConfig): void {
+  sqlConnectionConfig = { ...config };
+}
+
+function getSqlConnectionConfig(): SqlConnectionConfig {
+  if (!sqlConnectionConfig) {
+    throw new Error("SQL connection configuration has not been initialized.");
+  }
+  return sqlConnectionConfig;
+}
 
 export function getDefaultDatabaseName(): string | null {
   const allowedDatabases = parseDatabaseList(process.env.DATABASES);
@@ -53,7 +64,7 @@ export function resolveDatabaseName(databaseName?: string): string | null {
 
 export function buildSqlConfig(
   databaseName: string,
-  environment: EnvironmentConfig
+  environment: SqlConnectionConfig
 ): sql.config {
   const config: sql.config = {
     server: environment.serverName,
@@ -86,7 +97,7 @@ async function resolveConfiguredDatabase(
     const configurationHint =
       allowed.length > 0
         ? `Allowed: ${allowed.join(", ")}.`
-        : "Set both DATABASE_NAME and DATABASES to configure database access.";
+        : "Set DATABASE_NAME or DATABASES to configure database access.";
 
     return {
       databaseName: "",
@@ -117,7 +128,7 @@ export async function ensureSqlConnection(
     sqlPools.delete(databaseName);
   }
 
-  const config = buildSqlConfig(databaseName, parseEnvironmentConfig());
+  const config = buildSqlConfig(databaseName, getSqlConnectionConfig());
   const pool = new sql.ConnectionPool(config);
   await pool.connect();
   sqlPools.set(databaseName, pool);
@@ -156,7 +167,7 @@ export async function getDedicatedSqlPool(
   }
 
   const config = {
-    ...buildSqlConfig(resolved.databaseName, parseEnvironmentConfig()),
+    ...buildSqlConfig(resolved.databaseName, getSqlConnectionConfig()),
     pool: {
       max: 1,
       min: 0,
