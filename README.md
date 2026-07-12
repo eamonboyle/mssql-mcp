@@ -49,6 +49,8 @@ mssql-mcp
 
 The one-click links use the minimal configuration shown below. Replace the sample connection values before use.
 
+The badge payloads are generated from `src/samples/claude_desktop_config.json`. After changing the sample, run `npm run docs:update-install-links`; use `npm run docs:check-install-links` to verify they are current.
+
 ## Minimal MCP configuration
 
 The standard presets show connection placeholders and keep DDL disabled:
