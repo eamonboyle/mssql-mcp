@@ -35,6 +35,17 @@ export interface EnvironmentConfig extends SqlConnectionConfig {
   mcpBaseUrl?: string;
 }
 
+let runtimeEnvironment: EnvironmentConfig | undefined;
+
+export function configureRuntimeEnvironment(
+  environment: EnvironmentConfig
+): void {
+  runtimeEnvironment = {
+    ...environment,
+    databases: [...environment.databases],
+  };
+}
+
 function parseInteger(
   name: string,
   value: string | undefined,
@@ -42,7 +53,7 @@ function parseInteger(
   minimum = 1,
   maximum?: number
 ): number {
-  if (value === undefined) {
+  if (value === undefined || value.trim() === "") {
     return fallback;
   }
 
@@ -81,7 +92,7 @@ function parseBoolean(
   value: string | undefined,
   fallback?: boolean
 ): boolean {
-  if (value === undefined && fallback !== undefined) {
+  if ((value === undefined || value.trim() === "") && fallback !== undefined) {
     return fallback;
   }
 
@@ -100,7 +111,7 @@ function parseBoolean(
 }
 
 function parseServerPort(value: string | undefined): number | undefined {
-  if (value === undefined) {
+  if (value === undefined || value.trim() === "") {
     return undefined;
   }
 
@@ -163,7 +174,7 @@ export function parseSqlConnectionConfig(
   env: Environment = process.env
 ): SqlConnectionConfig {
   return {
-    serverName: parseRequiredString("SERVER_NAME", env.SERVER_NAME),
+    serverName: env.SERVER_NAME?.trim() || "localhost",
     serverPort: parseServerPort(env.SERVER_PORT),
     dbUser: parseRequiredString("DB_USER", env.DB_USER),
     dbPassword: parseRequiredString("DB_PASSWORD", env.DB_PASSWORD),
@@ -239,7 +250,7 @@ export function parseEnvironmentConfig(
 }
 
 function parseMcpTransport(value: string | undefined): McpTransportMode {
-  if (value === undefined) {
+  if (value === undefined || value.trim() === "") {
     return "stdio";
   }
 
@@ -252,15 +263,10 @@ function parseMcpTransport(value: string | undefined): McpTransportMode {
 }
 
 export function getMaxRows(): number {
+  if (runtimeEnvironment) {
+    return runtimeEnvironment.maxRows;
+  }
   return parseInteger("MAX_ROWS", process.env.MAX_ROWS, DEFAULT_MAX_ROWS);
-}
-
-export function getQueryTimeoutMs(): number {
-  return parseInteger(
-    "QUERY_TIMEOUT_MS",
-    process.env.QUERY_TIMEOUT_MS,
-    DEFAULT_QUERY_TIMEOUT_MS
-  );
 }
 
 export function getDefaultSearchLimit(): number {
@@ -282,28 +288,6 @@ export function clampRowLimit(limit: unknown, fallback = getMaxRows()): number {
   return Math.min(Math.floor(parsed), getMaxRows());
 }
 
-export function getMcpTransport(): McpTransportMode {
-  return parseMcpTransport(process.env.MCP_TRANSPORT);
-}
-
-export function getMcpHttpPort(): number {
-  return parseInteger(
-    "MCP_HTTP_PORT",
-    process.env.MCP_HTTP_PORT,
-    DEFAULT_HTTP_PORT,
-    1,
-    65535
-  );
-}
-
-export function getMcpHttpHost(): string {
-  return process.env.MCP_HTTP_HOST?.trim() || DEFAULT_HTTP_HOST;
-}
-
-export function getMcpBaseUrl(): string | undefined {
-  return parseMcpBaseUrl(process.env.MCP_BASE_URL);
-}
-
 export function getMcpEndpointUrl(
   environment: Pick<
     EnvironmentConfig,
@@ -316,22 +300,13 @@ export function getMcpEndpointUrl(
   return `${baseUrl.replace(/\/+$/, "")}/mcp`;
 }
 
-export function isDdlEnabled(): boolean {
-  return parseBoolean("ENABLE_DDL", process.env.ENABLE_DDL, false);
-}
-
 export function getMaxWriteRows(): number {
+  if (runtimeEnvironment) {
+    return runtimeEnvironment.maxWriteRows;
+  }
   return parseInteger(
     "MAX_WRITE_ROWS",
     process.env.MAX_WRITE_ROWS,
     DEFAULT_MAX_WRITE_ROWS
-  );
-}
-
-export function isWritePreviewRequired(): boolean {
-  return parseBoolean(
-    "REQUIRE_WRITE_PREVIEW",
-    process.env.REQUIRE_WRITE_PREVIEW,
-    true
   );
 }

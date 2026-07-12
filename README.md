@@ -5,8 +5,8 @@
 [![Node.js 20+](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![X: @eamonyo](https://img.shields.io/badge/X-%40eamonyo-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/eamonyo)
 
-[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=mssql-local&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBlYW1vbmJveWxlL21zc3FsLW1jcCJdLCJlbnYiOnsiU0VSVkVSX05BTUUiOiIxMjcuMC4wLjEiLCJEQVRBQkFTRV9OQU1FIjoiQXBwREIiLCJEQVRBQkFTRVMiOiJBcHBEQixSZXBvcnRpbmdEQiIsIkRCX1VTRVIiOiJzYSIsIkRCX1BBU1NXT1JEIjoiU3RyMG5nIVBhc3N3MHJkIiwiVFJVU1RfU0VSVkVSX0NFUlRJRklDQVRFIjoidHJ1ZSIsIlJFQURPTkxZIjoiZmFsc2UiLCJFTkFCTEVfRERMIjoidHJ1ZSJ9fQ==)
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://intradeus.github.io/http-protocol-redirector?r=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522mssql-local%2522%252C%2522command%2522%253A%2522npx%2522%252C%2522args%2522%253A%255B%2522-y%2522%252C%2522%2540eamonboyle%252Fmssql-mcp%2522%255D%252C%2522env%2522%253A%257B%2522SERVER_NAME%2522%253A%2522127.0.0.1%2522%252C%2522DATABASE_NAME%2522%253A%2522AppDB%2522%252C%2522DATABASES%2522%253A%2522AppDB%252CReportingDB%2522%252C%2522DB_USER%2522%253A%2522sa%2522%252C%2522DB_PASSWORD%2522%253A%2522Str0ng!Passw0rd%2522%252C%2522TRUST_SERVER_CERTIFICATE%2522%253A%2522true%2522%252C%2522READONLY%2522%253A%2522false%2522%252C%2522ENABLE_DDL%2522%253A%2522true%2522%257D%257D)
+[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=mssql-local&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBlYW1vbmJveWxlL21zc3FsLW1jcCJdLCJlbnYiOnsiU0VSVkVSX05BTUUiOiJsb2NhbGhvc3QiLCJEQVRBQkFTRV9OQU1FIjoiQXBwREIiLCJEQVRBQkFTRVMiOiJBcHBEQixSZXBvcnRpbmdEQiIsIkRCX1VTRVIiOiJ5b3VyX3VzZXJuYW1lIiwiREJfUEFTU1dPUkQiOiJ5b3VyX3Bhc3N3b3JkIiwiVFJVU1RfU0VSVkVSX0NFUlRJRklDQVRFIjoidHJ1ZSIsIlJFQURPTkxZIjoiZmFsc2UiLCJFTkFCTEVfRERMIjoiZmFsc2UifX0=)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://intradeus.github.io/http-protocol-redirector?r=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522mssql-local%2522%252C%2522command%2522%253A%2522npx%2522%252C%2522args%2522%253A%255B%2522-y%2522%252C%2522%2540eamonboyle%252Fmssql-mcp%2522%255D%252C%2522env%2522%253A%257B%2522SERVER_NAME%2522%253A%2522localhost%2522%252C%2522DATABASE_NAME%2522%253A%2522AppDB%2522%252C%2522DATABASES%2522%253A%2522AppDB%252CReportingDB%2522%252C%2522DB_USER%2522%253A%2522your_username%2522%252C%2522DB_PASSWORD%2522%253A%2522your_password%2522%252C%2522TRUST_SERVER_CERTIFICATE%2522%253A%2522true%2522%252C%2522READONLY%2522%253A%2522false%2522%252C%2522ENABLE_DDL%2522%253A%2522false%2522%257D%257D)
 
 > Experimental use only. This server is intended for education and evaluation, not production. Use a dedicated least-privilege SQL login and test all operations.
 
@@ -51,7 +51,7 @@ The one-click links use the minimal configuration shown below. Replace the sampl
 
 ## Minimal MCP configuration
 
-Only required variables are included in standard presets:
+The standard presets show connection placeholders and keep DDL disabled:
 
 ```json
 {
@@ -60,14 +60,14 @@ Only required variables are included in standard presets:
       "command": "npx",
       "args": ["-y", "@eamonboyle/mssql-mcp"],
       "env": {
-        "SERVER_NAME": "127.0.0.1",
+        "SERVER_NAME": "localhost",
         "DATABASE_NAME": "AppDB",
         "DATABASES": "AppDB,ReportingDB",
-        "DB_USER": "sa",
-        "DB_PASSWORD": "Str0ng!Passw0rd",
+        "DB_USER": "your_username",
+        "DB_PASSWORD": "your_password",
         "TRUST_SERVER_CERTIFICATE": "true",
         "READONLY": "false",
-        "ENABLE_DDL": "true"
+        "ENABLE_DDL": "false"
       }
     }
   }
@@ -76,7 +76,7 @@ Only required variables are included in standard presets:
 
 Cursor uses `mcpServers` in `~/.cursor/mcp.json` or `.cursor/mcp.json`. Claude Desktop uses the same shape in its configuration file.
 
-The standard presets use `ENABLE_DDL=true` so every advertised tool can be exercised immediately. Set it to `false` unless the assistant specifically needs to create or remove schema objects.
+Set `ENABLE_DDL=true` only when the assistant specifically needs to create or remove schema objects.
 
 VS Code uses `.vscode/mcp.json` or its user MCP configuration with a top-level `servers` object:
 
@@ -88,14 +88,14 @@ VS Code uses `.vscode/mcp.json` or its user MCP configuration with a top-level `
       "command": "npx",
       "args": ["-y", "@eamonboyle/mssql-mcp"],
       "env": {
-        "SERVER_NAME": "127.0.0.1",
+        "SERVER_NAME": "localhost",
         "DATABASE_NAME": "AppDB",
         "DATABASES": "AppDB,ReportingDB",
-        "DB_USER": "sa",
-        "DB_PASSWORD": "Str0ng!Passw0rd",
+        "DB_USER": "your_username",
+        "DB_PASSWORD": "your_password",
         "TRUST_SERVER_CERTIFICATE": "true",
         "READONLY": "false",
-        "ENABLE_DDL": "true"
+        "ENABLE_DDL": "false"
       }
     }
   }
@@ -106,11 +106,10 @@ See [`src/samples/`](src/samples/) for copyable Claude Desktop and VS Code files
 
 ## Required configuration
 
-The server validates these variables before starting. Missing, blank, or invalid values produce an actionable startup error.
+The server validates these variables before starting. Missing or blank values produce an actionable startup error.
 
 | Variable                   | Accepted format        | Purpose                                                               |
 | -------------------------- | ---------------------- | --------------------------------------------------------------------- |
-| `SERVER_NAME`              | Nonblank hostname      | SQL Server hostname only, such as `localhost` or `server.example.com` |
 | `DB_USER`                  | Nonblank string        | SQL authentication username                                           |
 | `DB_PASSWORD`              | Nonblank string        | SQL authentication password                                           |
 
@@ -149,6 +148,7 @@ Optional variables do not need empty placeholders. In-code defaults apply when t
 
 | Variable                | Accepted format               | Default               | Purpose                                                        |
 | ----------------------- | ----------------------------- | --------------------- | -------------------------------------------------------------- |
+| `SERVER_NAME`           | Hostname                      | `localhost`           | SQL Server hostname only                                      |
 | `SERVER_PORT`           | Integer from `1` to `65535`   | Driver default `1433` | SQL Server TCP port; omitted from the driver config when unset |
 | `ENCRYPT`               | `"true"` or `"false"`         | `"false"`             | Enable TLS encryption in the `mssql` driver                    |
 | `TRUST_SERVER_CERTIFICATE` | `"true"` or `"false"`      | `"true"`              | Trust the SQL Server certificate without validating its chain |
@@ -164,7 +164,7 @@ Optional variables do not need empty placeholders. In-code defaults apply when t
 | `MCP_HTTP_PORT`         | Integer from `1` to `65535`   | `3333`                | Bind port for HTTP mode                                        |
 | `MCP_BASE_URL`          | Absolute HTTP or HTTPS URL    | Unset                 | Public HTTP base advertised by the server; `/mcp` is appended  |
 
-Explicit invalid integers, booleans, ports, or transport names fail validation rather than falling back silently.
+Blank optional values use their documented defaults. Explicit nonblank invalid integers, booleans, ports, URLs, or transport names fail validation rather than falling back silently.
 
 `ENCRYPT=false` preserves the existing unencrypted connection behavior. Set `ENCRYPT=true` for TLS. With encryption enabled, keep `TRUST_SERVER_CERTIFICATE=false` for certificates that chain to a trusted authority. Use `TRUST_SERVER_CERTIFICATE=true` only when explicitly accepting a self-signed or otherwise untrusted certificate, such as local development.
 
@@ -303,7 +303,7 @@ See [`docs/dev-database.md`](docs/dev-database.md) for database and E2E details 
 
 - `SERVER_PORT must be a valid TCP port`: use a whole number from `1` to `65535`.
 - `getaddrinfo ENOTFOUND localhost,1434`: move `1434` from `SERVER_NAME` to `SERVER_PORT`.
-- `DDL_DISABLED`: set required `ENABLE_DDL` to `"true"` only when DDL access is intended.
+- `DDL_DISABLED`: set `ENABLE_DDL` to `"true"` only when DDL access is intended.
 - `PREVIEW_TOKEN_INVALID`: create a new matching preview and use its token once within 10 minutes.
 - stdio JSON parse errors: ensure scripts and dependencies write logs to stderr, not stdout.
 - database rejected: add it to `DATABASES` and use the exact allowed name in `databaseName`.

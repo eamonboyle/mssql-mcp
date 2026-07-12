@@ -16,10 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Startup uses one validated environment snapshot for transport, safety, limits, resource metadata, and SQL connection pools.
+- Startup uses one validated environment snapshot for transport, database access, safety, limits, resource metadata, and SQL connection pools.
+- Omitted or blank `SERVER_NAME` values retain the existing `localhost` default, and blank optional values continue to use their documented defaults.
 - Existing database configurations remain supported: set `DATABASE_NAME`, `DATABASES`, or both. When only `DATABASE_NAME` is present it becomes the single allowed database; when only `DATABASES` is present its first entry is the default.
 - `READONLY=false`, `ENABLE_DDL=false`, and `TRUST_SERVER_CERTIFICATE=true` remain the defaults when those variables are omitted. Explicit invalid boolean values still fail startup.
-- Cursor, VS Code, Claude Desktop, and MCP configuration samples now contain only required variables, with advanced settings documented separately.
+- Cursor, VS Code, Claude Desktop, and MCP configuration samples use credential placeholders and keep DDL disabled, with advanced settings documented separately.
 - Connection, safety, transport, tool, resource, and development documentation has been audited and simplified.
 
 ### Fixed

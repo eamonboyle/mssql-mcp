@@ -41,9 +41,13 @@ vi.mock("mssql", () => {
   };
 });
 
-import { parseSqlConnectionConfig } from "../config.js";
+import {
+  parseEnvironmentConfig,
+  parseSqlConnectionConfig,
+} from "../config.js";
 import {
   buildSqlConfig,
+  configureDatabase,
   configureSqlConnection,
   getAllowedDatabases,
   getSqlRequest,
@@ -397,5 +401,25 @@ describe("buildSqlConfig", () => {
       encrypt: true,
       trustServerCertificate: true,
     });
+  });
+});
+
+describe("database configuration snapshot", () => {
+  it("keeps database defaults and allowlisting stable after startup", () => {
+    configureDatabase(
+      parseEnvironmentConfig({
+        SERVER_NAME: "localhost",
+        DATABASE_NAME: "AppDB",
+        DATABASES: "AppDB,ReportingDB",
+        DB_USER: "sa",
+        DB_PASSWORD: "test-password",
+      })
+    );
+    process.env.DATABASE_NAME = "ChangedDb";
+    process.env.DATABASES = "ChangedDb";
+
+    expect(getAllowedDatabases()).toEqual(["AppDB", "ReportingDB"]);
+    expect(resolveDatabaseName()).toBe("AppDB");
+    expect(resolveDatabaseName("ChangedDb")).toBeNull();
   });
 });

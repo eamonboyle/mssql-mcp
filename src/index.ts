@@ -14,10 +14,11 @@ dotenv.config();
 
 import {
   type EnvironmentConfig,
+  configureRuntimeEnvironment,
   getMcpEndpointUrl,
   parseEnvironmentConfig,
 } from "./config.js";
-import { configureSqlConnection, getAllowedDatabases } from "./db.js";
+import { configureDatabase, getAllowedDatabases } from "./db.js";
 import {
   createResourceLink,
   createToolResult,
@@ -544,7 +545,8 @@ async function runHttpServer(environment: EnvironmentConfig) {
 
 async function main() {
   const environment = parseEnvironmentConfig();
-  configureSqlConnection(environment);
+  configureRuntimeEnvironment(environment);
+  configureDatabase(environment);
 
   if (environment.mcpTransport === "http") {
     await runHttpServer(environment);

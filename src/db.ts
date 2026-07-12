@@ -1,5 +1,6 @@
 import sql from "mssql";
 import {
+  type EnvironmentConfig,
   type SqlConnectionConfig,
   parseDatabaseList,
 } from "./config.js";
@@ -7,9 +8,17 @@ import {
 // Connection pools keyed by database name
 const sqlPools = new Map<string, sql.ConnectionPool>();
 let sqlConnectionConfig: SqlConnectionConfig | undefined;
+let configuredDefaultDatabase: string | undefined;
+let configuredDatabases: string[] | undefined;
 
 export function configureSqlConnection(config: SqlConnectionConfig): void {
   sqlConnectionConfig = { ...config };
+}
+
+export function configureDatabase(environment: EnvironmentConfig): void {
+  configureSqlConnection(environment);
+  configuredDefaultDatabase = environment.databaseName;
+  configuredDatabases = [...environment.databases];
 }
 
 function getSqlConnectionConfig(): SqlConnectionConfig {
@@ -20,6 +29,9 @@ function getSqlConnectionConfig(): SqlConnectionConfig {
 }
 
 export function getDefaultDatabaseName(): string | null {
+  if (configuredDefaultDatabase) {
+    return configuredDefaultDatabase;
+  }
   const allowedDatabases = parseDatabaseList(process.env.DATABASES);
   const explicitDefault = process.env.DATABASE_NAME?.trim();
 
@@ -39,6 +51,9 @@ export function getDefaultDatabaseName(): string | null {
  * If DATABASES is set, returns those; otherwise returns only DATABASE_NAME.
  */
 export function getAllowedDatabases(): string[] {
+  if (configuredDatabases) {
+    return [...configuredDatabases];
+  }
   const allowedDatabases = parseDatabaseList(process.env.DATABASES);
   if (allowedDatabases.length > 0) {
     return allowedDatabases;

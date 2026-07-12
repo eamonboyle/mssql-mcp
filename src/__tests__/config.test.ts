@@ -1,17 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   clampRowLimit,
+  configureRuntimeEnvironment,
   getDefaultSearchLimit,
-  getMcpBaseUrl,
   getMcpEndpointUrl,
-  getMcpHttpHost,
-  getMcpHttpPort,
-  getMcpTransport,
   getMaxRows,
   getMaxWriteRows,
-  getQueryTimeoutMs,
-  isDdlEnabled,
-  isWritePreviewRequired,
   parseEnvironmentConfig,
 } from "../config.js";
 
@@ -34,19 +28,15 @@ afterEach(() => {
 describe("config helpers", () => {
   it("uses defaults when env vars are absent", () => {
     delete process.env.MAX_ROWS;
-    delete process.env.QUERY_TIMEOUT_MS;
 
     expect(getMaxRows()).toBe(10000);
-    expect(getQueryTimeoutMs()).toBe(30000);
     expect(getDefaultSearchLimit()).toBe(100);
   });
 
   it("reads env-based limits", () => {
     process.env.MAX_ROWS = "250";
-    process.env.QUERY_TIMEOUT_MS = "45000";
 
     expect(getMaxRows()).toBe(250);
-    expect(getQueryTimeoutMs()).toBe(45000);
     expect(getDefaultSearchLimit()).toBe(100);
   });
 
@@ -58,30 +48,14 @@ describe("config helpers", () => {
     expect(clampRowLimit(undefined)).toBe(50);
   });
 
-  it("reads transport and safety defaults", () => {
-    delete process.env.MCP_TRANSPORT;
-    delete process.env.MCP_HTTP_HOST;
-    delete process.env.MCP_HTTP_PORT;
+  it("reads the default write limit", () => {
     delete process.env.MAX_WRITE_ROWS;
-    delete process.env.REQUIRE_WRITE_PREVIEW;
-    process.env.ENABLE_DDL = "false";
 
-    expect(getMcpTransport()).toBe("stdio");
-    expect(getMcpHttpHost()).toBe("127.0.0.1");
-    expect(getMcpHttpPort()).toBe(3333);
-    expect(isDdlEnabled()).toBe(false);
     expect(getMaxWriteRows()).toBe(100);
-    expect(isWritePreviewRequired()).toBe(true);
-  });
-
-  it("enables DDL when ENABLE_DDL=true", () => {
-    process.env.ENABLE_DDL = "true";
-    expect(isDdlEnabled()).toBe(true);
   });
 
   it("applies documented defaults when optional variables are absent", () => {
     const config = parseEnvironmentConfig({
-      SERVER_NAME: "localhost",
       DATABASE_NAME: "AppDB",
       DB_USER: "sa",
       DB_PASSWORD: "test-password",
@@ -90,6 +64,7 @@ describe("config helpers", () => {
     expect(config).toMatchObject({
       databaseName: "AppDB",
       databases: ["AppDB"],
+      serverName: "localhost",
       encrypt: false,
       trustServerCertificate: true,
       readOnly: false,
@@ -120,7 +95,7 @@ describe("config helpers", () => {
     expect(config.enableDdl).toBe(false);
   });
 
-  it.each(["SERVER_NAME", "DB_USER", "DB_PASSWORD"])(
+  it.each(["DB_USER", "DB_PASSWORD"])(
     "rejects a missing required %s value",
     (name) => {
     const environment = { ...requiredEnvironment };
@@ -130,7 +105,7 @@ describe("config helpers", () => {
     }
   );
 
-  it.each(["SERVER_NAME", "DB_USER", "DB_PASSWORD"])(
+  it.each(["DB_USER", "DB_PASSWORD"])(
     "rejects a blank required %s value",
     (name) => {
     expect(() =>
@@ -170,6 +145,41 @@ describe("config helpers", () => {
         DATABASES: undefined,
       })
     ).toThrow("At least one of DATABASE_NAME or DATABASES is required");
+  });
+
+  it("treats blank optional values as omitted", () => {
+    const config = parseEnvironmentConfig({
+      ...requiredEnvironment,
+      SERVER_NAME: "   ",
+      SERVER_PORT: " ",
+      ENCRYPT: "",
+      TRUST_SERVER_CERTIFICATE: " ",
+      READONLY: "",
+      ENABLE_DDL: " ",
+      CONNECTION_TIMEOUT: "",
+      QUERY_TIMEOUT_MS: " ",
+      MAX_ROWS: "",
+      MAX_WRITE_ROWS: " ",
+      REQUIRE_WRITE_PREVIEW: "",
+      MCP_TRANSPORT: " ",
+      MCP_HTTP_PORT: "",
+    });
+
+    expect(config).toMatchObject({
+      serverName: "localhost",
+      serverPort: undefined,
+      encrypt: false,
+      trustServerCertificate: true,
+      readOnly: false,
+      enableDdl: false,
+      connectionTimeoutSeconds: 30,
+      queryTimeoutMs: 30000,
+      maxRows: 10000,
+      maxWriteRows: 100,
+      requireWritePreview: true,
+      mcpTransport: "stdio",
+      mcpHttpPort: 3333,
+    });
   });
 
   it.each(["TRUST_SERVER_CERTIFICATE", "READONLY", "ENABLE_DDL"])(
@@ -213,7 +223,7 @@ describe("config helpers", () => {
     });
   });
 
-  it.each(["yes", "1", "on", ""])(
+  it.each(["yes", "1", "on"])(
     "rejects invalid ENCRYPT value %j",
     (value) => {
       expect(() =>
@@ -265,13 +275,6 @@ describe("MCP_BASE_URL", () => {
     ).toThrow("MCP_BASE_URL must be a valid absolute HTTP or HTTPS URL.");
   });
 
-  it("uses the same validation in the direct getter", () => {
-    process.env.MCP_BASE_URL = "https://example.test/base/";
-    expect(getMcpBaseUrl()).toBe("https://example.test/base");
-
-    process.env.MCP_BASE_URL = "not-a-url";
-    expect(() => getMcpBaseUrl()).toThrow("MCP_BASE_URL");
-  });
 });
 
 describe("SERVER_PORT", () => {
@@ -292,7 +295,7 @@ describe("SERVER_PORT", () => {
     expect(config.serverPort).toBe(expected);
   });
 
-  it.each(["abc", "1434abc", "14.34", "0", "-1", "65536", "   "])(
+  it.each(["abc", "1434abc", "14.34", "0", "-1", "65536"])(
     "rejects invalid value %j with a clear error",
     (value) => {
       expect(() =>
@@ -303,4 +306,21 @@ describe("SERVER_PORT", () => {
       ).toThrow("SERVER_PORT must be a valid TCP port between 1 and 65535.");
     }
   );
+});
+
+describe("runtime configuration snapshot", () => {
+  it("keeps row limits stable when process.env changes after startup", () => {
+    const environment = parseEnvironmentConfig({
+      ...requiredEnvironment,
+      MAX_ROWS: "25",
+      MAX_WRITE_ROWS: "10",
+    });
+    configureRuntimeEnvironment(environment);
+
+    process.env.MAX_ROWS = "999";
+    process.env.MAX_WRITE_ROWS = "999";
+
+    expect(getMaxRows()).toBe(25);
+    expect(getMaxWriteRows()).toBe(10);
+  });
 });
