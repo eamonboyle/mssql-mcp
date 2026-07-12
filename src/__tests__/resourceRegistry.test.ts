@@ -40,6 +40,12 @@ describe("resourceRegistry", () => {
       toolNames: [],
       maxRows: 100,
       queryTimeoutMs: 30000,
+      transport: "http",
+      publicEndpoint: "https://mcp.example.test/mssql/mcp",
+      encrypt: true,
+      trustServerCertificate: false,
+      enableDdl: false,
+      requireWritePreview: true,
       state,
     });
 
@@ -81,6 +87,11 @@ describe("resourceRegistry", () => {
       toolNames: [],
       maxRows: 100,
       queryTimeoutMs: 30000,
+      transport: "stdio",
+      encrypt: false,
+      trustServerCertificate: true,
+      enableDdl: false,
+      requireWritePreview: true,
       state,
     });
 
@@ -92,5 +103,54 @@ describe("resourceRegistry", () => {
     )) as { contents: Array<{ text: string }> };
 
     expect(result.contents[0].text).toContain("ShowPlanXML");
+  });
+
+  it("exposes redacted transport and connection metadata", async () => {
+    const handlers = new Map<string, (uri: URL) => Promise<unknown>>();
+    const state = new ServerState();
+    const server = {
+      registerResource(
+        name: string,
+        _resource: unknown,
+        _meta: unknown,
+        handler: (uri: URL) => Promise<unknown>
+      ) {
+        handlers.set(name, handler);
+      },
+    };
+
+    registerResources(server as never, {
+      serverName: "mssql-mcp-server",
+      serverVersion: "1.6.0",
+      isReadOnly: false,
+      allowedDatabases: ["AppDb"],
+      toolNames: ["list_databases"],
+      maxRows: 100,
+      queryTimeoutMs: 30000,
+      transport: "http",
+      publicEndpoint: "https://mcp.example.test/services/mssql/mcp",
+      encrypt: true,
+      trustServerCertificate: false,
+      enableDdl: true,
+      requireWritePreview: true,
+      state,
+    });
+
+    const configHandler = handlers.get("server_config");
+    const result = (await configHandler?.(
+      new URL("mssql://config/server")
+    )) as { contents: Array<{ text: string }> };
+    const payload = JSON.parse(result.contents[0].text);
+
+    expect(payload.server).toMatchObject({
+      transport: "http",
+      publicEndpoint: "https://mcp.example.test/services/mssql/mcp",
+      encrypt: true,
+      trustServerCertificate: false,
+      enableDdl: true,
+      requireWritePreview: true,
+    });
+    expect(payload.server).not.toHaveProperty("dbUser");
+    expect(payload.server).not.toHaveProperty("dbPassword");
   });
 });

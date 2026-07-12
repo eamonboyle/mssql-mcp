@@ -17,14 +17,14 @@ describe("buildFilteredReadQuery", () => {
       columns: ["id", "name"],
       orderBy: [{ column: "id", direction: "DESC" }],
       limit: 25,
-      filterParamPrefix: "filter_data",
+      filterParamPrefix: "filtered_read",
     });
 
     expect(query).toBe(
-      "SELECT TOP (@filter_limit) [id], [name] FROM [dbo].[Users] WHERE [id] = @filter_data_0 ORDER BY [id] DESC"
+      "SELECT TOP (@filter_limit) [id], [name] FROM [dbo].[Users] WHERE [id] = @filtered_read_0 ORDER BY [id] DESC"
     );
     expect(inputs).toEqual([
-      { name: "filter_data_0", value: 1 },
+      { name: "filtered_read_0", value: 1 },
       { name: "filter_limit", value: 25 },
     ]);
   });

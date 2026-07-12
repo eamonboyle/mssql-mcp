@@ -141,7 +141,7 @@ async function runTool(tool, args, assertFn) {
   }
 }
 
-function printReport() {
+function printReport(registeredToolCount) {
   const pass = results.filter((r) => r.status === "PASS").length;
   const fail = results.filter((r) => r.status === "FAIL").length;
   const skip = results.filter((r) => r.status === "SKIP").length;
@@ -153,7 +153,8 @@ function printReport() {
     const detail = row.detail ? ` — ${row.detail}` : "";
     console.log(`${row.tool.padEnd(nameWidth)}  ${status}${detail}`);
   }
-  console.log(`\nTotal: ${results.length} | PASS: ${pass} | FAIL: ${fail} | SKIP: ${skip}`);
+  console.log(`\nUnique registered tools: ${registeredToolCount}`);
+  console.log(`Tool invocations: ${results.length} | PASS: ${pass} | FAIL: ${fail} | SKIP: ${skip}`);
 
   if (fail > 0) {
     process.exitCode = 1;
@@ -225,6 +226,12 @@ async function main() {
     Array.isArray(payload?.data?.objectCounts) && payload.data.objectCounts.length > 0
   );
 
+  await runTool("list_largest_tables", {
+    databaseName: DATABASE,
+    schemaName: SCHEMA,
+    limit: 5,
+  }, ({ payload }) => Array.isArray(payload?.data) && payload.data.length > 0);
+
   await runTool("analyze_table", {
     databaseName: DATABASE,
     schemaName: SCHEMA,
@@ -245,14 +252,6 @@ async function main() {
     searchTerm: "example",
     limit: 5,
   });
-
-  await runTool("filter_data", {
-    databaseName: DATABASE,
-    schemaName: SCHEMA,
-    tableName: "Customers",
-    filters: [{ column: "Id", operator: "=", value: 1 }],
-    limit: 5,
-  }, ({ payload }) => rowsFromPayload(payload).length >= 1);
 
   await runTool("explain_query", {
     databaseName: DATABASE,
@@ -376,7 +375,7 @@ async function main() {
     }
   }
 
-  printReport();
+  printReport(registered.length);
 }
 
 main().catch((error) => {

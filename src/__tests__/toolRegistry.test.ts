@@ -101,12 +101,12 @@ describe("toolRegistry write schemas", () => {
     ).toBe(true);
   });
 
-  it("registers new discovery and filter tools as read-only", () => {
+  it("registers discovery tools as read-only", () => {
     for (const name of [
       "server_about",
       "summarize_schema",
       "describe_dependencies",
-      "filter_data",
+      "list_largest_tables",
     ]) {
       const definition = toolDefinitions.find((tool) => tool.tool.name === name);
       expect(definition, name).toBeDefined();
@@ -114,32 +114,19 @@ describe("toolRegistry write schemas", () => {
     }
   });
 
-  it("requires filters for filter_data and orderBy when offset is set", () => {
-    const schema = getToolSchema("filter_data");
-
+  it("does not expose filter_data as a public MCP tool", () => {
     expect(
-      schema.safeParse({
-        tableName: "Users",
-        filters: [],
-      }).success
+      toolDefinitions.some((definition) => definition.tool.name === "filter_data")
     ).toBe(false);
+  });
 
-    expect(
-      schema.safeParse({
-        tableName: "Users",
-        filters: [{ column: "id", operator: "=", value: 1 }],
-        offset: 10,
-      }).success
-    ).toBe(false);
+  it("validates list_largest_tables input", () => {
+    const schema = getToolSchema("list_largest_tables");
 
-    expect(
-      schema.safeParse({
-        tableName: "Users",
-        filters: [{ column: "id", operator: "=", value: 1 }],
-        offset: 10,
-        orderBy: [{ column: "id", direction: "ASC" }],
-      }).success
-    ).toBe(true);
+    expect(schema.safeParse({ limit: 5, schemaName: "dbo" }).success).toBe(true);
+    expect(schema.safeParse({ limit: 0 }).success).toBe(false);
+    expect(schema.safeParse({ limit: 1.5 }).success).toBe(false);
+    expect(schema.safeParse({ unexpected: true }).success).toBe(false);
   });
 
   it("rejects blank object names for object-scoped tools", () => {

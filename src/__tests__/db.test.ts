@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const mssqlMockState = vi.hoisted(() => ({
-  poolConfigs: [] as Array<{ database?: string }>,
+  poolConfigs: [] as Array<Record<string, unknown> & { database?: string }>,
   requestObject: { kind: "mock-request" },
   connectCalls: vi.fn(),
   closeCalls: vi.fn(),
@@ -41,13 +41,39 @@ vi.mock("mssql", () => {
   };
 });
 
-import { getAllowedDatabases, getSqlRequest, resolveDatabaseName } from "../db.js";
+import {
+  parseEnvironmentConfig,
+  parseSqlConnectionConfig,
+} from "../config.js";
+import {
+  buildSqlConfig,
+  configureDatabase,
+  configureSqlConnection,
+  getAllowedDatabases,
+  getSqlRequest,
+  resolveDatabaseName,
+} from "../db.js";
+
+function setRequiredEnvironment() {
+  Object.assign(process.env, {
+    SERVER_NAME: "localhost",
+    DATABASE_NAME: "AppDB",
+    DATABASES: "AppDB,ReportingDB",
+    DB_USER: "sa",
+    DB_PASSWORD: "test-password",
+    TRUST_SERVER_CERTIFICATE: "true",
+    READONLY: "false",
+    ENABLE_DDL: "false",
+  });
+}
 
 describe("getAllowedDatabases", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    setRequiredEnvironment();
+    configureSqlConnection(parseSqlConnectionConfig(process.env));
     mssqlMockState.poolConfigs.length = 0;
     mssqlMockState.connectCalls.mockClear();
     mssqlMockState.closeCalls.mockClear();
@@ -111,6 +137,7 @@ describe("resolveDatabaseName", () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    setRequiredEnvironment();
     mssqlMockState.poolConfigs.length = 0;
     mssqlMockState.connectCalls.mockClear();
     mssqlMockState.closeCalls.mockClear();
@@ -194,6 +221,7 @@ describe("getSqlRequest", () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    setRequiredEnvironment();
     mssqlMockState.poolConfigs.length = 0;
     mssqlMockState.connectCalls.mockClear();
     mssqlMockState.closeCalls.mockClear();
@@ -225,9 +253,9 @@ describe("getSqlRequest", () => {
     );
   });
 
-  it("returns a request using the resolved default database", async () => {
+  it("returns a request using the configured default database", async () => {
     process.env.DATABASES = "ProdDBDefault,StagingDB";
-    delete process.env.DATABASE_NAME;
+    process.env.DATABASE_NAME = "ProdDBDefault";
 
     const result = await getSqlRequest();
 
@@ -241,6 +269,18 @@ describe("getSqlRequest", () => {
     );
     expect(mssqlMockState.requestCalls).toHaveBeenCalledWith(
       expect.objectContaining({ database: "ProdDBDefault" })
+    );
+  });
+
+  it("reuses the startup-validated SQL connection configuration", async () => {
+    configureSqlConnection(parseSqlConnectionConfig(process.env));
+    process.env.SERVER_NAME = "changed-after-startup";
+
+    const result = await getSqlRequest("AppDB");
+
+    expect(result.error).toBeUndefined();
+    expect(mssqlMockState.poolConfigs).toContainEqual(
+      expect.objectContaining({ server: "localhost", database: "AppDB" })
     );
   });
 
@@ -261,5 +301,125 @@ describe("getSqlRequest", () => {
     expect(mssqlMockState.requestCalls).toHaveBeenCalledWith(
       expect.objectContaining({ database: "ProdDB" })
     );
+  });
+});
+
+describe("buildSqlConfig", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    setRequiredEnvironment();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("builds a host-only connection without an explicit port", () => {
+    delete process.env.SERVER_PORT;
+
+    const config = buildSqlConfig(
+      "AppDB",
+      parseSqlConnectionConfig(process.env)
+    );
+
+    expect(config.server).toBe("localhost");
+    expect(config).not.toHaveProperty("port");
+  });
+
+  it.each([
+    ["1434", 1434],
+    ["1433", 1433],
+  ])("passes SERVER_PORT=%s separately as port %i", (value, expected) => {
+    process.env.SERVER_PORT = value;
+
+    const config = buildSqlConfig(
+      "AppDB",
+      parseSqlConnectionConfig(process.env)
+    );
+
+    expect(config.server).toBe("localhost");
+    expect(config.port).toBe(expected);
+  });
+
+  it("does not split or otherwise transform SERVER_NAME", () => {
+    process.env.SERVER_NAME = "localhost,1434";
+    delete process.env.SERVER_PORT;
+
+    const config = buildSqlConfig(
+      "AppDB",
+      parseSqlConnectionConfig(process.env)
+    );
+
+    expect(config.server).toBe("localhost,1434");
+    expect(config).not.toHaveProperty("port");
+  });
+
+  it("preserves authentication, timeouts, and connection options", () => {
+    Object.assign(process.env, {
+      DB_USER: "database-user",
+      DB_PASSWORD: "database-password",
+      TRUST_SERVER_CERTIFICATE: "false",
+      CONNECTION_TIMEOUT: "45",
+      QUERY_TIMEOUT_MS: "60000",
+    });
+
+    const config = buildSqlConfig(
+      "ReportingDB",
+      parseSqlConnectionConfig(process.env)
+    );
+
+    expect(config).toMatchObject({
+      server: "localhost",
+      database: "ReportingDB",
+      user: "database-user",
+      password: "database-password",
+      requestTimeout: 60000,
+      connectionTimeout: 45000,
+      options: {
+        encrypt: false,
+        trustServerCertificate: false,
+        enableArithAbort: true,
+        useUTC: false,
+      },
+    });
+  });
+
+  it("enables encrypted driver connections when ENCRYPT=true", () => {
+    Object.assign(process.env, {
+      ENCRYPT: "true",
+      TRUST_SERVER_CERTIFICATE: "true",
+    });
+
+    const config = buildSqlConfig(
+      "AppDB",
+      parseSqlConnectionConfig(process.env)
+    );
+
+    expect(config.options).toMatchObject({
+      encrypt: true,
+      trustServerCertificate: true,
+    });
+  });
+});
+
+describe("database configuration snapshot", () => {
+  it("keeps database defaults and allowlisting stable after startup", () => {
+    configureDatabase(
+      parseEnvironmentConfig({
+        SERVER_NAME: "localhost",
+        DATABASE_NAME: "AppDB",
+        DATABASES: "AppDB,ReportingDB",
+        DB_USER: "sa",
+        DB_PASSWORD: "test-password",
+      })
+    );
+    process.env.DATABASE_NAME = "ChangedDb";
+    process.env.DATABASES = "ChangedDb";
+
+    expect(getAllowedDatabases()).toEqual(["AppDB", "ReportingDB"]);
+    expect(resolveDatabaseName()).toBe("AppDB");
+    expect(resolveDatabaseName("ChangedDb")).toBeNull();
   });
 });
