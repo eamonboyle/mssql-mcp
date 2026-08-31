@@ -118,6 +118,6 @@ node .cursor/skills/verify-mssql-mcp/scripts/mcp-rpc.mjs resources/read 'mssql:/
 node .cursor/skills/verify-mssql-mcp/scripts/mcp-rpc.mjs prompts/get explore_schema '{"goal":"see AppDB tables"}'
 ```
 
-`--out` writes the same JSON that stdout prints. `--contains` must appear in that JSON or the process exits 1. `--no-require-success` keeps a failed tool payload from exiting 1, which you need when proving `CONFIRMATION_REQUIRED` or `DDL_DISABLED`.
+`--out` writes the JSON envelope and prints a one-line status. Omit `--out` to print the full envelope on stdout. `--contains` must appear in that JSON or the process exits 1. `--no-require-success` keeps a failed tool payload from exiting 1, which you need when proving `CONFIRMATION_REQUIRED` or `DDL_DISABLED`.
 
 The full registered-tool sweep remains `npm run test:e2e` after this instance is cleaned up. Use it for all-tools coverage, not for a single mapped feature.

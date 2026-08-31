@@ -143,6 +143,10 @@ cmd_launch() {
 
   echo "Timed out waiting for $BASE_URL. Log: $LOG_FILE" >&2
   tail -40 "$LOG_FILE" >&2 || true
+  if pid_alive "$server_pid"; then
+    kill "$server_pid" 2>/dev/null || true
+  fi
+  rm -f "$PID_FILE" "$PORT_FILE" "$BASE_URL_FILE"
   exit 1
 }
 

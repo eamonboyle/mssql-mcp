@@ -18,6 +18,7 @@ function parseCli(argv) {
   const { values, positionals } = parseArgs({
     args: argv,
     allowPositionals: true,
+    allowNegative: true,
     options: {
       "base-url": { type: "string" },
       out: { type: "string" },
@@ -219,11 +220,18 @@ async function main() {
   };
 
   const json = `${JSON.stringify(envelope, null, 2)}\n`;
-  process.stdout.write(json);
 
   if (cli.outPath) {
     mkdirSync(dirname(cli.outPath), { recursive: true });
     writeFileSync(cli.outPath, json);
+    const success =
+      envelope.payload && typeof envelope.payload === "object"
+        ? envelope.payload.success
+        : undefined;
+    const successBit = success === undefined ? "ok" : `success=${success}`;
+    process.stdout.write(`${request.method} ${successBit} wrote ${cli.outPath}\n`);
+  } else {
+    process.stdout.write(json);
   }
 
   for (const needle of cli.contains) {
