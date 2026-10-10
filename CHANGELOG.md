@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Contains breaking changes (Node.js 22+, HTTP exposure rules); suggested release: 2.0.0.
+## [2.0.0] - 2026-10-10
+
+This release contains breaking changes: Node.js 22+ is required and HTTP exposure rules are stricter. See the Changed and Security sections below.
 
 ### Added
 
