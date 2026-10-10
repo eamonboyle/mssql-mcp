@@ -1,6 +1,6 @@
 // Builds the elicitation message for write/DDL confirmations so the user sees
-// what they are approving: target database and table, plus filters, columns,
-// or row counts depending on the tool.
+// what they are approving before they accept: target database and table,
+// filters, and a bounded preview of inserted or updated values.
 
 const MAX_VALUE_LENGTH = 40;
 const MAX_LIST_ITEMS = 5;
@@ -55,6 +55,31 @@ function formatWhere(filters: unknown): string {
     : "";
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function formatAssignments(record: Record<string, unknown>): string {
+  return formatList(
+    Object.entries(record).map(
+      ([column, value]) => `${column} = ${formatValue(value)}`
+    )
+  );
+}
+
+function formatInsertValues(data: unknown): string {
+  const rows = Array.isArray(data) ? data : [data];
+  const first = rows.find(isRecord);
+  if (!first) {
+    return "";
+  }
+  const assignments = formatAssignments(first);
+  if (!assignments) {
+    return "";
+  }
+  return rows.length > 1 ? `. First row: ${assignments}` : `: ${assignments}`;
+}
+
 export function describeConfirmation(
   toolName: string,
   args: Record<string, unknown>,
@@ -66,15 +91,14 @@ export function describeConfirmation(
   switch (toolName) {
     case "insert_data": {
       const rows = Array.isArray(args.data) ? args.data.length : 1;
-      detail = `insert ${rows} row${rows === 1 ? "" : "s"} into ${target}`;
+      detail = `insert ${rows} row${rows === 1 ? "" : "s"} into ${target}${formatInsertValues(args.data)}`;
       break;
     }
     case "update_data": {
-      const columns =
-        typeof args.updates === "object" && args.updates !== null
-          ? Object.keys(args.updates)
-          : [];
-      detail = `update ${target}: set ${formatList(columns)}${formatWhere(args.filters)}`;
+      const assignments = isRecord(args.updates)
+        ? formatAssignments(args.updates)
+        : "";
+      detail = `update ${target}: set ${assignments}${formatWhere(args.filters)}`;
       break;
     }
     case "delete_data":
@@ -86,7 +110,9 @@ export function describeConfirmation(
       break;
     }
     case "create_index": {
-      const columns = Array.isArray(args.columns) ? args.columns.map(String) : [];
+      const columns = Array.isArray(args.columns)
+        ? args.columns.map(String)
+        : [];
       detail = `create index ${String(args.indexName ?? "?")} on ${target} (${formatList(columns)})`;
       break;
     }

@@ -12,7 +12,7 @@ Contains breaking changes (Node.js 22+, HTTP exposure rules); suggested release:
 ### Added
 
 - Support for the 2026-07-28 MCP specification via the v2 TypeScript SDK (`@modelcontextprotocol/server` and `@modelcontextprotocol/node`). 2025-era clients, including Cursor over stdio, are still served on the same transports.
-- Write confirmations use multi-round-trip `input_required` elicitation on 2026-07-28 connections and classic elicitation on 2025-era connections. Clients without elicitation still use `confirmed: true`. The prompt names the target database and table plus the filters, updated columns, row count, or index columns.
+- Write confirmations use multi-round-trip `input_required` elicitation on 2026-07-28 connections and classic elicitation on 2025-era connections. Clients without elicitation still use `confirmed: true`. The prompt names the target database and table plus the filters, a bounded preview of inserted or updated values, the row count, or index columns.
 - `SQL_AUTH_TYPE` with `ntlm`, `azure-default` (DefaultAzureCredential / managed identity / `az login`), `azure-service-principal`, and `azure-access-token`, alongside the default SQL login. Entra ID types default `ENCRYPT` to `true` and `TRUST_SERVER_CERTIFICATE` to `false`, so tokens and secrets only travel over a validated TLS connection.
 - HTTP security: `Host`/`Origin` validation against DNS rebinding, optional bearer token (`MCP_HTTP_AUTH_TOKEN`), and `MCP_HTTP_ALLOWED_HOSTS`. Only `/mcp` is served. A non-loopback bind without an `https://` `MCP_BASE_URL` logs a plain-HTTP warning.
 - MCP Apps query-results grid (`ui://mssql/query-results.html`) for `read_data` and `search_data` in hosts that support MCP Apps.

@@ -70,6 +70,14 @@ function insertArgs(label) {
   };
 }
 
+/** Values in the elicitation text are truncated, so match the short fields exactly. */
+function assertWritePreview(message, data) {
+  if (!message.includes(`Name = '${data.Name}'`)) return `elicitation omitted Name: ${message}`;
+  if (!message.includes(`City = '${data.City}'`)) return `elicitation omitted City: ${message}`;
+  if (!message.includes("insert 1 row")) return `elicitation omitted row count: ${message}`;
+  return true;
+}
+
 function stdioTransport() {
   return new StdioClientTransport({ command: process.execPath, args: [SERVER_ENTRY], stderr: "ignore" });
 }
@@ -108,9 +116,32 @@ async function modernHttpChecks() {
   });
 
   await check("modern/http: insert_data confirmed through input_required", async () => {
-    const result = await client.callTool({ name: "insert_data", arguments: insertArgs("modern") });
+    const args = insertArgs("modern");
+    const result = await client.callTool({ name: "insert_data", arguments: args });
     if (prompts.length !== 1) return `expected 1 elicitation, saw ${prompts.length}`;
+    const preview = assertWritePreview(prompts[0], args.data);
+    if (preview !== true) return preview;
     return payloadOf(result)?.success === true || payloadOf(result)?.message;
+  });
+
+  await check("modern/http: update_data elicitation previews replacement values", async () => {
+    const before = prompts.length;
+    const result = await client.callTool({
+      name: "update_data",
+      arguments: {
+        databaseName: "AppDB",
+        schemaName: "dbo",
+        tableName: "Customers",
+        updates: { City: "ElicitPreview" },
+        filters: [{ column: "Email", operator: "=", value: "nobody-elicitation@example.com" }],
+      },
+    });
+    const message = prompts.at(-1) ?? "";
+    if (prompts.length !== before + 1) return `expected one new elicitation, saw ${prompts.length - before}`;
+    if (!message.includes("City = 'ElicitPreview'")) return `missing update value: ${message}`;
+    if (!message.includes("Email = 'nobody-elicitation@example.com'")) return `missing filter: ${message}`;
+    const payload = payloadOf(result);
+    return payload?.error?.code === "PREVIEW_TOKEN_INVALID" || payload?.message;
   });
 
   const declining = createClient({ elicitation: "decline", mode: { pin: "2026-07-28" } });
@@ -179,8 +210,11 @@ async function legacyStdioChecks() {
   const accepting = createClient({ elicitation: "accept" });
   await accepting.client.connect(stdioTransport());
   await check("legacy/stdio: insert_data confirmed through elicitation (Cursor path)", async () => {
-    const result = await accepting.client.callTool({ name: "insert_data", arguments: insertArgs("legacy") });
+    const args = insertArgs("legacy");
+    const result = await accepting.client.callTool({ name: "insert_data", arguments: args });
     if (accepting.prompts.length !== 1) return `expected 1 elicitation, saw ${accepting.prompts.length}`;
+    const preview = assertWritePreview(accepting.prompts[0], args.data);
+    if (preview !== true) return preview;
     return payloadOf(result)?.success === true || payloadOf(result)?.message;
   });
   await accepting.client.close();
