@@ -141,6 +141,28 @@ async function runTool(tool, args, assertFn) {
   }
 }
 
+/**
+ * Records a named behavioral check (not tied to a single tool invocation).
+ * @param {string} label
+ * @param {() => Promise<true | string>} fn returns true on success or a failure detail
+ */
+async function check(label, fn) {
+  try {
+    const outcome = await fn();
+    results.push(
+      outcome === true
+        ? { tool: label, status: "PASS" }
+        : { tool: label, status: "FAIL", detail: String(outcome) }
+    );
+  } catch (error) {
+    results.push({
+      tool: label,
+      status: "FAIL",
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 function printReport(registeredToolCount) {
   const pass = results.filter((r) => r.status === "PASS").length;
   const fail = results.filter((r) => r.status === "FAIL").length;
@@ -257,6 +279,65 @@ async function main() {
     databaseName: REPORTING_DB,
     query: `SELECT TOP 1 * FROM ${SCHEMA}.DailySales`,
   }, ({ payload }) => rowsFromPayload(payload).length >= 0);
+
+  // --- read_data behavior (validator, streaming limit, errors, rollback) ---
+  for (const [label, query] of [
+    ["CTE", `WITH c AS (SELECT TOP 2 Id FROM ${SCHEMA}.Customers) SELECT * FROM c`],
+    ["VARCHAR cast", `SELECT TOP 1 CAST(Id AS VARCHAR(20)) AS IdText FROM ${SCHEMA}.Customers`],
+    ["keyword in literal", `SELECT TOP 1 'Update pending' AS Status FROM ${SCHEMA}.Customers`],
+  ]) {
+    await check(`read_data accepts ${label}`, async () => {
+      const { payload } = await callTool("read_data", { databaseName: DATABASE, query });
+      return payload?.success === true || `rejected: ${payload?.message}`;
+    });
+  }
+
+  let truncatedResultUri;
+  await check("read_data stops at MAX_ROWS", async () => {
+    const { payload } = await callTool("read_data", {
+      databaseName: DATABASE,
+      query: "SELECT TOP 50000 a.object_id FROM sys.all_objects a CROSS JOIN sys.all_objects b",
+    });
+    truncatedResultUri = payload?.meta?.queryResultUri;
+    if (payload?.success !== true) return `failed: ${payload?.message}`;
+    if (payload.truncated !== true) return "expected truncated=true";
+    return rowsFromPayload(payload).length === 10000 || `got ${rowsFromPayload(payload).length} rows`;
+  });
+
+  await check("query-result resource readable on a later request", async () => {
+    if (!truncatedResultUri) return "no queryResultUri returned";
+    const read = await mcp("resources/read", { uri: truncatedResultUri });
+    return (read?.contents?.length ?? 0) > 0 || "empty resource contents";
+  });
+
+  await check("read_data returns SQL Server error text", async () => {
+    const { payload } = await callTool("read_data", {
+      databaseName: DATABASE,
+      query: `SELECT NoSuchColumn FROM ${SCHEMA}.Customers`,
+    });
+    return (payload?.success === false && /Invalid column name/i.test(payload?.message ?? "")) ||
+      `unexpected: ${payload?.message}`;
+  });
+
+  await check("read_data runs in a rolled-back transaction", async () => {
+    const { payload } = await callTool("read_data", {
+      databaseName: DATABASE,
+      query: "SELECT XACT_STATE() AS XactState",
+    });
+    const row = rowsFromPayload(payload)[0];
+    return row?.XactState === 1 || `XACT_STATE() = ${row?.XactState} (${payload?.message})`;
+  });
+
+  for (const [label, query] of [
+    ["writes hidden in a CTE", `WITH c AS (SELECT Id FROM ${SCHEMA}.Customers) DELETE FROM c`],
+    ["COMMIT glued to a number", `SELECT 1COMMIT SELECT 1DELETE FROM ${SCHEMA}.Customers WHERE Id = -1`],
+    ["a second statement without a semicolon", "SELECT 1 AS a SELECT name FROM sys.sql_logins"],
+  ]) {
+    await check(`read_data rejects ${label}`, async () => {
+      const { payload } = await callTool("read_data", { databaseName: DATABASE, query });
+      return payload?.error?.code === "SECURITY_VALIDATION_FAILED" || `unexpected: ${payload?.message}`;
+    });
+  }
 
   const previewUpdate = await runTool("preview_update", {
     databaseName: DATABASE,

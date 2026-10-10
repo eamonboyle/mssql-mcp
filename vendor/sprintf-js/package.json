@@ -1,0 +1,8 @@
+{
+  "name": "sprintf-js",
+  "version": "1.1.4-mssql-mcp.0",
+  "description": "Minimal sprintf replacement for tedious (GHSA-hp3w-g68c-fv3c). Remove once tedious drops sprintf-js.",
+  "license": "MIT",
+  "private": true,
+  "main": "index.js"
+}

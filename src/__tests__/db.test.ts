@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const mssqlMockState = vi.hoisted(() => ({
@@ -46,12 +47,14 @@ import {
   parseSqlConnectionConfig,
 } from "../config.js";
 import {
+  bindRequestCancellation,
   buildSqlConfig,
   configureDatabase,
   configureSqlConnection,
   getAllowedDatabases,
   getSqlRequest,
   resolveDatabaseName,
+  runWithSqlRequestContext,
 } from "../db.js";
 
 function setRequiredEnvironment() {
@@ -421,5 +424,170 @@ describe("database configuration snapshot", () => {
     expect(getAllowedDatabases()).toEqual(["AppDB", "ReportingDB"]);
     expect(resolveDatabaseName()).toBe("AppDB");
     expect(resolveDatabaseName("ChangedDb")).toBeNull();
+  });
+});
+
+describe("buildSqlConfig authentication", () => {
+  const authKeys = [
+    "SQL_AUTH_TYPE",
+    "DB_USER",
+    "DB_PASSWORD",
+    "DB_DOMAIN",
+    "AZURE_CLIENT_ID",
+    "AZURE_CLIENT_SECRET",
+    "AZURE_TENANT_ID",
+    "AZURE_ACCESS_TOKEN",
+    "ENCRYPT",
+  ];
+
+  function connectionConfig(env: Record<string, string>) {
+    const base = { SERVER_NAME: "sql.example.net" };
+    return buildSqlConfig("AppDB", parseSqlConnectionConfig({ ...base, ...env }));
+  }
+
+  beforeEach(() => {
+    for (const key of authKeys) delete process.env[key];
+  });
+
+  it("uses SQL login by default", () => {
+    const config = connectionConfig({ DB_USER: "sa", DB_PASSWORD: "pw" });
+    expect(config).toMatchObject({ user: "sa", password: "pw" });
+    expect(config).not.toHaveProperty("authentication");
+    expect(config.options?.encrypt).toBe(false);
+  });
+
+  it("passes the domain for NTLM", () => {
+    const config = connectionConfig({
+      SQL_AUTH_TYPE: "ntlm",
+      DB_USER: "svc",
+      DB_PASSWORD: "pw",
+      DB_DOMAIN: "CORP",
+    });
+    expect(config).toMatchObject({ user: "svc", password: "pw", domain: "CORP" });
+  });
+
+  it("maps azure-default to DefaultAzureCredential and enables TLS", () => {
+    const config = connectionConfig({
+      SQL_AUTH_TYPE: "azure-default",
+      AZURE_CLIENT_ID: "managed-identity-id",
+    });
+    expect(config.authentication).toEqual({
+      type: "azure-active-directory-default",
+      options: { clientId: "managed-identity-id" },
+    });
+    expect(config).not.toHaveProperty("user");
+    expect(config.options?.encrypt).toBe(true);
+    expect(config.options?.trustServerCertificate).toBe(false);
+  });
+
+  it("lets TRUST_SERVER_CERTIFICATE override the Entra ID default", () => {
+    const config = connectionConfig({
+      SQL_AUTH_TYPE: "azure-default",
+      TRUST_SERVER_CERTIFICATE: "true",
+    });
+    expect(config.options?.trustServerCertificate).toBe(true);
+  });
+
+  it("maps a service principal", () => {
+    const config = connectionConfig({
+      SQL_AUTH_TYPE: "azure-service-principal",
+      AZURE_CLIENT_ID: "app",
+      AZURE_CLIENT_SECRET: "secret",
+      AZURE_TENANT_ID: "tenant",
+    });
+    expect(config.authentication).toEqual({
+      type: "azure-active-directory-service-principal-secret",
+      options: { clientId: "app", clientSecret: "secret", tenantId: "tenant" },
+    });
+  });
+
+  it("maps an access token and honors an explicit ENCRYPT=false", () => {
+    const config = connectionConfig({
+      SQL_AUTH_TYPE: "azure-access-token",
+      AZURE_ACCESS_TOKEN: "token",
+      ENCRYPT: "false",
+    });
+    expect(config.authentication).toEqual({
+      type: "azure-active-directory-access-token",
+      options: { token: "token" },
+    });
+    expect(config.options?.encrypt).toBe(false);
+  });
+
+  it.each([
+    [{ SQL_AUTH_TYPE: "ntlm", DB_USER: "u", DB_PASSWORD: "p" }, "DB_DOMAIN"],
+    [{ SQL_AUTH_TYPE: "azure-service-principal", AZURE_CLIENT_ID: "a" }, "AZURE_CLIENT_SECRET"],
+    [{ SQL_AUTH_TYPE: "azure-access-token" }, "AZURE_ACCESS_TOKEN"],
+    [{ SQL_AUTH_TYPE: "kerberos" }, "SQL_AUTH_TYPE"],
+  ])("rejects incomplete auth config %o", (env, missing) => {
+    expect(() => connectionConfig(env)).toThrow(missing);
+  });
+
+  it("does not require DB_USER for Entra ID auth", () => {
+    expect(() => connectionConfig({ SQL_AUTH_TYPE: "azure-default" })).not.toThrow();
+  });
+});
+
+describe("bindRequestCancellation", () => {
+  function fakeRequest() {
+    const request = new EventEmitter() as EventEmitter & { cancel: () => void };
+    request.cancel = vi.fn();
+    return request;
+  }
+  type BindableRequest = Parameters<typeof bindRequestCancellation>[0];
+
+  it("cancels the SQL request when the MCP request is aborted", async () => {
+    const controller = new AbortController();
+    const request = fakeRequest();
+    await runWithSqlRequestContext({ signal: controller.signal }, async () => {
+      bindRequestCancellation(request as unknown as BindableRequest);
+      controller.abort();
+    });
+    expect(request.cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes abort listeners when the MCP request finishes", async () => {
+    const controller = new AbortController();
+    const request = fakeRequest();
+    await runWithSqlRequestContext({ signal: controller.signal }, async () => {
+      // Non-stream requests never emit "done".
+      bindRequestCancellation(request as unknown as BindableRequest);
+    });
+    controller.abort();
+    expect(request.cancel).not.toHaveBeenCalled();
+  });
+
+  it("removes abort listeners when the MCP request fails", async () => {
+    const controller = new AbortController();
+    const request = fakeRequest();
+    await expect(
+      runWithSqlRequestContext({ signal: controller.signal }, async () => {
+        bindRequestCancellation(request as unknown as BindableRequest);
+        throw new Error("boom");
+      })
+    ).rejects.toThrow("boom");
+    controller.abort();
+    expect(request.cancel).not.toHaveBeenCalled();
+  });
+
+  it("releases a streamed request's listener on done", async () => {
+    const controller = new AbortController();
+    const request = fakeRequest();
+    await runWithSqlRequestContext({ signal: controller.signal }, async () => {
+      bindRequestCancellation(request as unknown as BindableRequest);
+      request.emit("done");
+      controller.abort();
+    });
+    expect(request.cancel).not.toHaveBeenCalled();
+  });
+
+  it("fails fast when the MCP request is already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      runWithSqlRequestContext({ signal: controller.signal }, async () =>
+        bindRequestCancellation(fakeRequest() as unknown as BindableRequest)
+      )
+    ).rejects.toThrow();
   });
 });

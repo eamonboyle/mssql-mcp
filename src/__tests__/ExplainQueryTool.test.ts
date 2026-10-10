@@ -57,6 +57,7 @@ vi.mock("mssql", () => ({
 }));
 
 vi.mock("../db.js", () => ({
+  bindRequestCancellation: <T>(request: T) => request,
   getDedicatedSqlPool: vi.fn(async () => ({
     pool: mockRequestModule.mockPool(),
   })),

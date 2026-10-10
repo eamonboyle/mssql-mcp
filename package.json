@@ -1,6 +1,6 @@
 {
   "name": "@eamonboyle/mssql-mcp",
-  "version": "1.6.0",
+  "version": "2.0.0",
   "description": "MCP server for Microsoft SQL Server - query and manage your database with natural language in Cursor, Claude, and VS Code",
   "keywords": [
     "mcp",
@@ -30,7 +30,7 @@
     "mssql-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "shx rm -rf dist && tsc && shx chmod +x dist/*.js",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc && node -e \"require('fs').chmodSync('dist/index.js',0o755)\"",
     "prepare": "npm run build",
     "watch": "tsc --watch",
     "start": "node dist/index.js",
@@ -44,31 +44,38 @@
     "db:down": "bash scripts/mssql-down.sh",
     "db:seed": "bash scripts/mssql-seed.sh",
     "db:reset": "bash scripts/mssql-down.sh --volumes && bash scripts/mssql-up.sh",
-    "test:e2e": "bash scripts/e2e-mcp-tools.sh"
+    "test:e2e": "bash scripts/e2e-mcp-tools.sh && node scripts/e2e-protocol.mjs",
+    "test:e2e:protocol": "node scripts/e2e-protocol.mjs"
   },
   "files": [
     "dist"
   ],
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
-    "@types/mssql": "^9.1.7",
-    "@types/node": "^20.0.0",
-    "eslint": "^9.39.2",
+    "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/client": "^2.3.1",
+    "@types/mssql": "^12.3.0",
+    "@types/node": "^22.20.5",
+    "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
-    "prettier": "^3.8.1",
-    "shx": "^0.3.4",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.55.0",
-    "vitest": "^4.1.10"
+    "prettier": "^3.9.10",
+    "sprintf-js": "file:vendor/sprintf-js",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.28.0",
-    "dotenv": "^10.0.0",
-    "mssql": "^11.0.1",
-    "zod": "^4.3.6"
+    "@modelcontextprotocol/ext-apps": "^2.0.3",
+    "@modelcontextprotocol/node": "^2.1.1",
+    "@modelcontextprotocol/server": "^2.3.1",
+    "dotenv": "^18.0.7",
+    "mssql": "^12.7.4",
+    "zod": "^4.6.5"
   },
-  "type": "module"
+  "type": "module",
+  "overrides": {
+    "sprintf-js": "$sprintf-js"
+  }
 }

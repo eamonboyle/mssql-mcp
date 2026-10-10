@@ -1,12 +1,72 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import sql from "mssql";
 import {
   type EnvironmentConfig,
+  type SqlAuthConfig,
   type SqlConnectionConfig,
   parseDatabaseList,
 } from "./config.js";
 
-// Connection pools keyed by database name
+// Connection pools keyed by database name. Pending connects are tracked so
+// concurrent first requests share one pool instead of racing to create two.
 const sqlPools = new Map<string, sql.ConnectionPool>();
+const pendingPools = new Map<string, Promise<sql.ConnectionPool>>();
+
+interface SqlRequestContext {
+  signal?: AbortSignal;
+}
+
+interface SqlRequestStore extends SqlRequestContext {
+  // Abort listeners added by bindRequestCancellation, removed when the MCP
+  // request finishes (mssql only emits "done" in stream mode).
+  cleanups: Set<() => void>;
+}
+
+const requestContext = new AsyncLocalStorage<SqlRequestStore>();
+
+/**
+ * Runs `fn` with an MCP request context so SQL requests created inside it are
+ * cancelled when the client cancels the MCP request.
+ */
+export function runWithSqlRequestContext<T>(
+  context: SqlRequestContext,
+  fn: () => Promise<T>
+): Promise<T> {
+  const store: SqlRequestStore = { ...context, cleanups: new Set() };
+  return requestContext.run(store, async () => {
+    try {
+      return await fn();
+    } finally {
+      for (const cleanup of store.cleanups) {
+        cleanup();
+      }
+      store.cleanups.clear();
+    }
+  });
+}
+
+/** Cancels `request` when the current MCP request is aborted. */
+export function bindRequestCancellation(request: sql.Request): sql.Request {
+  const store = requestContext.getStore();
+  const signal = store?.signal;
+  if (!store || !signal) {
+    return request;
+  }
+  // mssql resets its cancel flag when a query starts, so a cancel issued
+  // before then would be lost: fail fast instead.
+  signal.throwIfAborted();
+  const onAbort = () => request.cancel();
+  const cleanup = () => {
+    signal.removeEventListener("abort", onAbort);
+    store.cleanups.delete(cleanup);
+  };
+  signal.addEventListener("abort", onAbort, { once: true });
+  store.cleanups.add(cleanup);
+  // Streamed requests can release the listener as soon as they finish.
+  request.once("done", cleanup);
+  return request;
+}
+
 let sqlConnectionConfig: SqlConnectionConfig | undefined;
 let configuredDefaultDatabase: string | undefined;
 let configuredDatabases: string[] | undefined;
@@ -77,6 +137,42 @@ export function resolveDatabaseName(databaseName?: string): string | null {
   return null;
 }
 
+function buildAuthentication(
+  auth: SqlAuthConfig
+): Pick<sql.config, "user" | "password" | "domain" | "authentication"> {
+  switch (auth.type) {
+    case "sql":
+      return { user: auth.user, password: auth.password };
+    case "ntlm":
+      return { user: auth.user, password: auth.password, domain: auth.domain };
+    case "azure-default":
+      return {
+        authentication: {
+          type: "azure-active-directory-default",
+          options: auth.clientId ? { clientId: auth.clientId } : {},
+        },
+      };
+    case "azure-service-principal":
+      return {
+        authentication: {
+          type: "azure-active-directory-service-principal-secret",
+          options: {
+            clientId: auth.clientId,
+            clientSecret: auth.clientSecret,
+            tenantId: auth.tenantId,
+          },
+        },
+      };
+    case "azure-access-token":
+      return {
+        authentication: {
+          type: "azure-active-directory-access-token",
+          options: { token: auth.token },
+        },
+      };
+  }
+}
+
 export function buildSqlConfig(
   databaseName: string,
   environment: SqlConnectionConfig
@@ -84,8 +180,7 @@ export function buildSqlConfig(
   const config: sql.config = {
     server: environment.serverName,
     database: databaseName,
-    user: environment.dbUser,
-    password: environment.dbPassword,
+    ...buildAuthentication(environment.auth),
     requestTimeout: environment.queryTimeoutMs,
     options: {
       encrypt: environment.encrypt,
@@ -134,20 +229,54 @@ export async function ensureSqlConnection(
     return existing;
   }
 
-  if (existing) {
-    try {
-      await existing.close();
-    } catch {
-      // Ignore close errors
-    }
-    sqlPools.delete(databaseName);
+  const pending = pendingPools.get(databaseName);
+  if (pending) {
+    return pending;
   }
 
-  const config = buildSqlConfig(databaseName, getSqlConnectionConfig());
-  const pool = new sql.ConnectionPool(config);
-  await pool.connect();
-  sqlPools.set(databaseName, pool);
-  return pool;
+  const connecting = (async () => {
+    if (existing) {
+      sqlPools.delete(databaseName);
+      await existing.close().catch(() => undefined);
+    }
+
+    const config = buildSqlConfig(databaseName, getSqlConnectionConfig());
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
+    sqlPools.set(databaseName, pool);
+    return pool;
+  })();
+
+  pendingPools.set(databaseName, connecting);
+  try {
+    return await connecting;
+  } finally {
+    pendingPools.delete(databaseName);
+  }
+}
+
+/** Closes every cached connection pool (used on shutdown). */
+export async function closeAllPools(): Promise<void> {
+  const pools = [...sqlPools.values()];
+  sqlPools.clear();
+  await Promise.allSettled(pools.map((pool) => pool.close()));
+}
+
+/**
+ * Returns the shared connection pool for the given (or default) database.
+ */
+export async function getSqlPool(
+  databaseName?: string
+): Promise<{ pool: sql.ConnectionPool; error?: string }> {
+  const resolved = await resolveConfiguredDatabase(databaseName);
+  if (resolved.error) {
+    return {
+      pool: null as unknown as sql.ConnectionPool,
+      error: resolved.error,
+    };
+  }
+
+  return { pool: await ensureSqlConnection(resolved.databaseName) };
 }
 
 /**
@@ -167,7 +296,7 @@ export async function getSqlRequest(
   }
 
   const pool = await ensureSqlConnection(resolved.databaseName);
-  return { request: pool.request() };
+  return { request: bindRequestCancellation(pool.request()) };
 }
 
 export async function getDedicatedSqlPool(

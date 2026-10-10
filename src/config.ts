@@ -10,11 +10,32 @@ type Environment = NodeJS.ProcessEnv;
 
 export type McpTransportMode = "stdio" | "http";
 
+export const SQL_AUTH_TYPES = [
+  "sql",
+  "ntlm",
+  "azure-default",
+  "azure-service-principal",
+  "azure-access-token",
+] as const;
+
+export type SqlAuthType = (typeof SQL_AUTH_TYPES)[number];
+
+export type SqlAuthConfig =
+  | { type: "sql"; user: string; password: string }
+  | { type: "ntlm"; user: string; password: string; domain: string }
+  | { type: "azure-default"; clientId?: string }
+  | {
+      type: "azure-service-principal";
+      clientId: string;
+      clientSecret: string;
+      tenantId: string;
+    }
+  | { type: "azure-access-token"; token: string };
+
 export interface SqlConnectionConfig {
   serverName: string;
   serverPort?: number;
-  dbUser: string;
-  dbPassword: string;
+  auth: SqlAuthConfig;
   encrypt: boolean;
   trustServerCertificate: boolean;
   connectionTimeoutSeconds: number;
@@ -33,6 +54,9 @@ export interface EnvironmentConfig extends SqlConnectionConfig {
   mcpHttpHost: string;
   mcpHttpPort: number;
   mcpBaseUrl?: string;
+  mcpHttpAuthToken?: string;
+  mcpHttpAllowUnauthenticated: boolean;
+  mcpHttpAllowedHosts: string[];
 }
 
 let runtimeEnvironment: EnvironmentConfig | undefined;
@@ -170,19 +194,75 @@ export function parseDatabaseList(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
+function parseSqlAuthType(value: string | undefined): SqlAuthType {
+  if (value === undefined || value.trim() === "") {
+    return "sql";
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if ((SQL_AUTH_TYPES as readonly string[]).includes(normalized)) {
+    return normalized as SqlAuthType;
+  }
+
+  throw new Error(`SQL_AUTH_TYPE must be one of: ${SQL_AUTH_TYPES.join(", ")}.`);
+}
+
+export function parseSqlAuthConfig(
+  env: Environment = process.env
+): SqlAuthConfig {
+  const type = parseSqlAuthType(env.SQL_AUTH_TYPE);
+  switch (type) {
+    case "sql":
+      return {
+        type,
+        user: parseRequiredString("DB_USER", env.DB_USER),
+        password: parseRequiredString("DB_PASSWORD", env.DB_PASSWORD),
+      };
+    case "ntlm":
+      return {
+        type,
+        user: parseRequiredString("DB_USER", env.DB_USER),
+        password: parseRequiredString("DB_PASSWORD", env.DB_PASSWORD),
+        domain: parseRequiredString("DB_DOMAIN", env.DB_DOMAIN),
+      };
+    case "azure-default": {
+      const clientId = env.AZURE_CLIENT_ID?.trim();
+      return clientId ? { type, clientId } : { type };
+    }
+    case "azure-service-principal":
+      return {
+        type,
+        clientId: parseRequiredString("AZURE_CLIENT_ID", env.AZURE_CLIENT_ID),
+        clientSecret: parseRequiredString(
+          "AZURE_CLIENT_SECRET",
+          env.AZURE_CLIENT_SECRET
+        ),
+        tenantId: parseRequiredString("AZURE_TENANT_ID", env.AZURE_TENANT_ID),
+      };
+    case "azure-access-token":
+      return {
+        type,
+        token: parseRequiredString("AZURE_ACCESS_TOKEN", env.AZURE_ACCESS_TOKEN),
+      };
+  }
+}
+
 export function parseSqlConnectionConfig(
   env: Environment = process.env
 ): SqlConnectionConfig {
+  const auth = parseSqlAuthConfig(env);
+  const isEntraAuth = auth.type.startsWith("azure-");
   return {
     serverName: env.SERVER_NAME?.trim() || "localhost",
     serverPort: parseServerPort(env.SERVER_PORT),
-    dbUser: parseRequiredString("DB_USER", env.DB_USER),
-    dbPassword: parseRequiredString("DB_PASSWORD", env.DB_PASSWORD),
-    encrypt: parseBoolean("ENCRYPT", env.ENCRYPT, false),
+    auth,
+    // Azure SQL requires TLS and presents publicly trusted certificates, so
+    // Entra ID auth types default to encrypting and validating the certificate.
+    encrypt: parseBoolean("ENCRYPT", env.ENCRYPT, isEntraAuth),
     trustServerCertificate: parseBoolean(
       "TRUST_SERVER_CERTIFICATE",
       env.TRUST_SERVER_CERTIFICATE,
-      true
+      !isEntraAuth
     ),
     connectionTimeoutSeconds: parseInteger(
       "CONNECTION_TIMEOUT",
@@ -246,6 +326,15 @@ export function parseEnvironmentConfig(
       65535
     ),
     mcpBaseUrl: parseMcpBaseUrl(env.MCP_BASE_URL),
+    mcpHttpAuthToken: env.MCP_HTTP_AUTH_TOKEN?.trim() || undefined,
+    mcpHttpAllowUnauthenticated: parseBoolean(
+      "MCP_HTTP_ALLOW_UNAUTHENTICATED",
+      env.MCP_HTTP_ALLOW_UNAUTHENTICATED,
+      false
+    ),
+    mcpHttpAllowedHosts: parseDatabaseList(env.MCP_HTTP_ALLOWED_HOSTS).map(
+      (host) => host.toLowerCase()
+    ),
   };
 }
 
@@ -296,8 +385,13 @@ export function getMcpEndpointUrl(
 ): string {
   const baseUrl =
     environment.mcpBaseUrl ??
-    `http://${environment.mcpHttpHost}:${environment.mcpHttpPort}`;
+    `http://${formatUrlHost(environment.mcpHttpHost)}:${environment.mcpHttpPort}`;
   return `${baseUrl.replace(/\/+$/, "")}/mcp`;
+}
+
+/** Brackets IPv6 literals (`::1` -> `[::1]`) for use in a URL authority. */
+export function formatUrlHost(host: string): string {
+  return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
 }
 
 export function getMaxWriteRows(): number {

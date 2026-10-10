@@ -5,7 +5,7 @@ This repo includes a Docker Compose stack that runs Microsoft SQL Server 2022 wi
 ## Prerequisites
 
 - Docker Engine with the Compose plugin (`docker compose`)
-- Node.js 20+
+- Node.js 22+
 
 ## Quick start
 
@@ -69,8 +69,11 @@ This script (`scripts/e2e-mcp-tools.sh`):
 1. Ensures `mssql-mcp-dev` is running (`npm run db:up` if not)
 2. Builds the project
 3. Starts a dedicated HTTP MCP server with `ENABLE_DDL=true` (DDL tools need this)
-4. Runs `scripts/e2e-mcp-tools.mjs`, which calls each tool and prints PASS/FAIL per tool
+4. Runs `scripts/e2e-mcp-tools.mjs`, which calls each tool plus `read_data` behavior checks (CTEs, `MAX_ROWS` truncation, SQL error text, rolled-back transaction, cross-request query-result resources) and prints PASS/FAIL
 5. Stops the server on exit
+6. Runs `scripts/e2e-protocol.mjs`, which drives the server with the official MCP client: 2026-07-28 over HTTP (multi-round-trip write confirmation, decline, cancellation reaching SQL Server) and 2025-era stdio (classic elicitation as Cursor uses it, and the `confirmed: true` fallback)
+
+Run the protocol checks alone with `npm run test:e2e:protocol` (requires `npm run build`; uses port 3334).
 
 To run only the Node harness (server already running on port 3333):
 

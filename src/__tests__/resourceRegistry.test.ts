@@ -42,6 +42,7 @@ describe("resourceRegistry", () => {
       queryTimeoutMs: 30000,
       transport: "http",
       publicEndpoint: "https://mcp.example.test/mssql/mcp",
+      sqlAuthType: "sql",
       encrypt: true,
       trustServerCertificate: false,
       enableDdl: false,
@@ -88,6 +89,7 @@ describe("resourceRegistry", () => {
       maxRows: 100,
       queryTimeoutMs: 30000,
       transport: "stdio",
+      sqlAuthType: "sql",
       encrypt: false,
       trustServerCertificate: true,
       enableDdl: false,
@@ -129,6 +131,7 @@ describe("resourceRegistry", () => {
       queryTimeoutMs: 30000,
       transport: "http",
       publicEndpoint: "https://mcp.example.test/services/mssql/mcp",
+      sqlAuthType: "azure-default",
       encrypt: true,
       trustServerCertificate: false,
       enableDdl: true,
@@ -143,6 +146,7 @@ describe("resourceRegistry", () => {
     const payload = JSON.parse(result.contents[0].text);
 
     expect(payload.server).toMatchObject({
+      sqlAuthType: "azure-default",
       transport: "http",
       publicEndpoint: "https://mcp.example.test/services/mssql/mcp",
       encrypt: true,
@@ -152,5 +156,6 @@ describe("resourceRegistry", () => {
     });
     expect(payload.server).not.toHaveProperty("dbUser");
     expect(payload.server).not.toHaveProperty("dbPassword");
+    expect(JSON.stringify(payload)).not.toMatch(/password|secret|token/i);
   });
 });
