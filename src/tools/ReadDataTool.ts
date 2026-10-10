@@ -1,5 +1,7 @@
+import sql from "mssql";
 import { getMaxRows } from "../config.js";
-import { getSqlRequest } from "../db.js";
+import { bindRequestCancellation, getSqlPool } from "../db.js";
+import { describeSqlError, isCancellation } from "../sqlErrors.js";
 import { validateReadQuery } from "../validation.js";
 
 interface ReadDataParams {
@@ -7,72 +9,99 @@ interface ReadDataParams {
   databaseName?: string;
 }
 
+interface StreamedRows {
+  rows: Record<string, unknown>[];
+  truncated: boolean;
+}
+
+/**
+ * Streams a query and stops reading once `maxRows` rows have arrived, so a
+ * large result is never fully buffered in memory.
+ */
+export function streamRows(
+  request: sql.Request,
+  query: string,
+  maxRows: number
+): Promise<StreamedRows> {
+  return new Promise((resolve, reject) => {
+    const rows: Record<string, unknown>[] = [];
+    let truncated = false;
+    let failure: unknown;
+
+    request.stream = true;
+    request.on("row", (row: Record<string, unknown>) => {
+      if (rows.length < maxRows) {
+        rows.push(row);
+        return;
+      }
+      if (!truncated) {
+        // One row past the limit proves there is more data; stop the server.
+        truncated = true;
+        request.cancel();
+      }
+    });
+    request.on("error", (error: unknown) => {
+      // Our own cancel surfaces as ECANCEL; the rows read so far are valid.
+      if (truncated && (error as { code?: string })?.code === "ECANCEL") {
+        return;
+      }
+      failure ??= error;
+    });
+    // Settle only on "done": until then the request still owns the
+    // connection, and rolling back the transaction would fail and leak it.
+    request.on("done", () =>
+      failure ? reject(failure) : resolve({ rows, truncated })
+    );
+    // Callback form: in stream mode errors arrive via the "error" event, and
+    // the promise form would otherwise reject unobserved.
+    request.query(query, () => undefined);
+  });
+}
+
 export class ReadDataTool {
   name = "read_data";
   description =
-    "Executes a SELECT query on an MSSQL Database table. The query must start with SELECT and cannot contain any destructive SQL operations for security reasons.";
+    "Executes a read-only SELECT query (CTEs with WITH are allowed) on an MSSQL database. Only a single SELECT statement is accepted, and it runs inside a transaction that is always rolled back.";
 
   /**
-   * Sanitizes the query result to prevent any potential security issues
-   * @param data The query result data
-   * @returns Sanitized data
+   * Removes unexpected characters from column names in the result.
    */
-  private sanitizeResult(data: unknown[]): unknown[] {
-    if (!Array.isArray(data)) {
-      return [];
-    }
-
-    // Limit the number of returned records to prevent memory issues
-    const maxRecords = getMaxRows();
-    if (data.length > maxRecords) {
-      console.warn(
-        `Query returned ${data.length} records, limiting to ${maxRecords}`
-      );
-      return data.slice(0, maxRecords);
-    }
-
-    return data.map((record) => {
-      if (typeof record === "object" && record !== null) {
-        const sanitized: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(record)) {
-          // Sanitize column names (remove any suspicious characters)
-          const sanitizedKey = key.replace(/[^\w\s-_.]/g, "");
-          if (sanitizedKey !== key) {
-            console.warn(`Column name sanitized: ${key} -> ${sanitizedKey}`);
-          }
-          sanitized[sanitizedKey] = value;
+  private sanitizeColumnNames(
+    rows: Record<string, unknown>[]
+  ): Record<string, unknown>[] {
+    return rows.map((record) => {
+      const sanitized: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(record)) {
+        const sanitizedKey = key.replace(/[^\w\s-_.]/g, "");
+        if (sanitizedKey !== key) {
+          console.error(`Column name sanitized: ${key} -> ${sanitizedKey}`);
         }
-        return sanitized;
+        sanitized[sanitizedKey] = value;
       }
-      return record;
+      return sanitized;
     });
   }
 
-  /**
-   * Executes the validated SQL query
-   * @param params Query parameters
-   * @returns Query execution result
-   */
   async run(params: ReadDataParams) {
-    try {
-      const { query, databaseName } = params;
+    const { query, databaseName } = params;
 
-      const { request, error } = await getSqlRequest(databaseName);
+    const validation = validateReadQuery(query);
+    if (!validation.isValid) {
+      console.error(
+        `Security validation failed for query: ${query?.substring?.(0, 100)}...`
+      );
+      return {
+        success: false,
+        message: `Security validation failed: ${validation.error}`,
+        error: "SECURITY_VALIDATION_FAILED",
+      };
+    }
+
+    let transaction: sql.Transaction | undefined;
+    try {
+      const { pool, error } = await getSqlPool(databaseName);
       if (error) {
         return { success: false, message: error, error: "INVALID_DATABASE" };
-      }
-
-      // Validate the query for security issues
-      const validation = validateReadQuery(query);
-      if (!validation.isValid) {
-        console.warn(
-          `Security validation failed for query: ${query.substring(0, 100)}...`
-        );
-        return {
-          success: false,
-          message: `Security validation failed: ${validation.error}`,
-          error: "SECURITY_VALIDATION_FAILED",
-        };
       }
 
       // Audit on stderr only — stdout must stay JSON-RPC for MCP stdio transport.
@@ -80,38 +109,37 @@ export class ReadDataTool {
         `Executing validated SELECT query: ${query.substring(0, 200)}${query.length > 200 ? "..." : ""}`
       );
 
-      // Execute the query
-      const result = await request.query(query);
+      // Defense in depth: anything that slipped past validation is undone.
+      transaction = new sql.Transaction(pool);
+      await transaction.begin();
+      const request = bindRequestCancellation(new sql.Request(transaction));
 
-      // Sanitize the result
-      const sanitizedData = this.sanitizeResult(result.recordset);
+      const maxRows = getMaxRows();
+      const { rows, truncated } = await streamRows(request, query, maxRows);
+      const data = this.sanitizeColumnNames(rows);
 
       return {
         success: true,
-        message: `Query executed successfully. Retrieved ${sanitizedData.length} record(s)${
-          result.recordset.length !== sanitizedData.length
-            ? ` (limited from ${result.recordset.length} total records)`
-            : ""
-        }`,
-        data: sanitizedData,
-        recordCount: sanitizedData.length,
-        totalRecords: result.recordset.length,
+        message: truncated
+          ? `Query executed successfully. Returned the first ${data.length} record(s); more rows exist beyond MAX_ROWS (${maxRows}). Add TOP, WHERE, or OFFSET/FETCH to narrow the result.`
+          : `Query executed successfully. Retrieved ${data.length} record(s)`,
+        data,
+        recordCount: data.length,
+        truncated,
       };
     } catch (error) {
-      console.error("Error executing query:", error);
-
-      // Don't expose internal error details to prevent information leakage
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error occurred";
-      const safeErrorMessage = errorMessage.includes("Invalid object name")
-        ? errorMessage
-        : "Database query execution failed";
-
+      if (isCancellation(error)) {
+        console.error("Query canceled by the client.");
+      } else {
+        console.error("Error executing query:", error);
+      }
       return {
         success: false,
-        message: `Failed to execute query: ${safeErrorMessage}`,
+        message: `Failed to execute query: ${describeSqlError(error)}`,
         error: "QUERY_EXECUTION_FAILED",
       };
+    } finally {
+      await transaction?.rollback().catch(() => undefined);
     }
   }
 }

@@ -1,5 +1,5 @@
 import sql from "mssql";
-import { getDedicatedSqlPool } from "../db.js";
+import { bindRequestCancellation, getDedicatedSqlPool } from "../db.js";
 import { validateReadQuery } from "../validation.js";
 
 interface ExplainQueryParams {
@@ -79,7 +79,9 @@ export class ExplainQueryTool {
       await pool.request().batch("SET SHOWPLAN_XML ON");
       showplanEnabled = true;
 
-      const planResult = await pool.request().batch(query);
+      const planResult = await bindRequestCancellation(pool.request()).batch(
+        query
+      );
       const planXml = extractPlanXml(planResult.recordsets);
 
       return {

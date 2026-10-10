@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Contains breaking changes (Node.js 22+, HTTP exposure rules); suggested release: 2.0.0.
+
+### Added
+
+- Support for the 2026-07-28 MCP specification via the v2 TypeScript SDK (`@modelcontextprotocol/server` and `@modelcontextprotocol/node`). 2025-era clients, including Cursor over stdio, are still served on the same transports.
+- Write confirmations use multi-round-trip `input_required` elicitation on 2026-07-28 connections and classic elicitation on 2025-era connections. Clients without elicitation still use `confirmed: true`.
+- `SQL_AUTH_TYPE` with `ntlm`, `azure-default` (DefaultAzureCredential / managed identity / `az login`), `azure-service-principal`, and `azure-access-token`, alongside the default SQL login. Entra ID types default `ENCRYPT` to `true`.
+- HTTP security: `Host`/`Origin` validation against DNS rebinding, optional bearer token (`MCP_HTTP_AUTH_TOKEN`), and `MCP_HTTP_ALLOWED_HOSTS`. Only `/mcp` is served.
+- MCP Apps query-results grid (`ui://mssql/query-results.html`) for `read_data` and `search_data` in hosts that support MCP Apps.
+- Client cancellation now cancels the running SQL request.
+- `read_data` accepts CTEs (`WITH ... SELECT`, including `;WITH`).
+- `mssql://config/server` reports `sqlAuthType`.
+- Protocol E2E suite (`npm run test:e2e:protocol`, also run by `npm run test:e2e`).
+
+### Changed
+
+- **Breaking:** Node.js 22 or newer is required. Node 20 is end-of-life, and the SQL Server driver (`tedious` 20) uses Node 22 APIs. On older versions the server now exits at startup with a message that recommends upgrading or pinning `@eamonboyle/mssql-mcp@1.6.0`, the last release for Node 20.
+- **Breaking:** HTTP mode refuses to start on a non-loopback `MCP_HTTP_HOST` unless `MCP_HTTP_AUTH_TOKEN` is set or `MCP_HTTP_ALLOW_UNAUTHENTICATED=true`.
+- `read_data` streams results and stops at `MAX_ROWS` instead of buffering the full result, marks partial results as `truncated`, and no longer reports `totalRecords`. Each query runs in a transaction that is always rolled back.
+- `read_data` returns SQL Server error messages (for example `Invalid column name`) instead of a generic failure.
+- The `read_data` validator ignores string literals, comments, and quoted identifiers, which fixes false rejections of `CAST(... AS VARCHAR(n))`, `REPLACE()`, `CHAR()`, columns such as `user_name` or `resp_code`, and literals such as `'Update pending'`.
+- The server version reported to clients is read from `package.json`.
+- Dependencies: `mssql` 12, `dotenv` 18 (silenced so stdout stays JSON-RPC), `zod` 4.6, TypeScript 6 (`nodenext` resolution), ESLint 10, Vitest 5. `shx` was removed.
+- CI tests Node 22, 24 and 26 with `actions/checkout` and `actions/setup-node` v7. The publish workflow no longer caches dependencies, following the setup-node v7 guidance for OIDC publishing.
+- The deprecated `logging` server capability is no longer declared.
+
+### Security
+
+- `read_data` validation now tokenizes queries following T-SQL lexing rules. Previously a keyword glued to a number (`SELECT 1COMMIT ...`), a line comment ended by a bare carriage return, or a second statement without a semicolon could pass validation; the first could commit writes. Confirmed against SQL Server 2022 and covered by unit and E2E tests.
+- HTTP mode validates `Host`/`Origin` headers (DNS rebinding) and supports bearer-token authentication.
+- `npm audit` is clean. `sprintf-js` (GHSA-hp3w-g68c-fv3c, no patched release), pulled in by `mssql` → `tedious`, is replaced in this repository through `overrides` with a minimal vendored implementation (`vendor/sprintf-js`) that matches sprintf-js 1.1.3 output for the format strings tedious uses and rejects everything else. tedious never passes the vulnerable precision specifiers. Overrides do not apply to installs of the published package, so remove the override once tedious drops the dependency (tediousjs/tedious#1814).
+
+### Fixed
+
+- Stored query results and query plans (`mssql://query-result/...`, `mssql://query-plan/...`) returned by one HTTP request can now be read by later requests.
+- Concurrent first requests for a database no longer race to create duplicate connection pools.
+- SQL connection pools are closed on `SIGINT`/`SIGTERM` and when a stdio client disconnects.
+- Rows beyond `MAX_ROWS` skipped column-name sanitization.
+
 ## [1.6.0] - 2026-07-12
 
 ### Added

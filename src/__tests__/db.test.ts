@@ -423,3 +423,95 @@ describe("database configuration snapshot", () => {
     expect(resolveDatabaseName("ChangedDb")).toBeNull();
   });
 });
+
+describe("buildSqlConfig authentication", () => {
+  const authKeys = [
+    "SQL_AUTH_TYPE",
+    "DB_USER",
+    "DB_PASSWORD",
+    "DB_DOMAIN",
+    "AZURE_CLIENT_ID",
+    "AZURE_CLIENT_SECRET",
+    "AZURE_TENANT_ID",
+    "AZURE_ACCESS_TOKEN",
+    "ENCRYPT",
+  ];
+
+  function connectionConfig(env: Record<string, string>) {
+    const base = { SERVER_NAME: "sql.example.net" };
+    return buildSqlConfig("AppDB", parseSqlConnectionConfig({ ...base, ...env }));
+  }
+
+  beforeEach(() => {
+    for (const key of authKeys) delete process.env[key];
+  });
+
+  it("uses SQL login by default", () => {
+    const config = connectionConfig({ DB_USER: "sa", DB_PASSWORD: "pw" });
+    expect(config).toMatchObject({ user: "sa", password: "pw" });
+    expect(config).not.toHaveProperty("authentication");
+    expect(config.options?.encrypt).toBe(false);
+  });
+
+  it("passes the domain for NTLM", () => {
+    const config = connectionConfig({
+      SQL_AUTH_TYPE: "ntlm",
+      DB_USER: "svc",
+      DB_PASSWORD: "pw",
+      DB_DOMAIN: "CORP",
+    });
+    expect(config).toMatchObject({ user: "svc", password: "pw", domain: "CORP" });
+  });
+
+  it("maps azure-default to DefaultAzureCredential and enables TLS", () => {
+    const config = connectionConfig({
+      SQL_AUTH_TYPE: "azure-default",
+      AZURE_CLIENT_ID: "managed-identity-id",
+    });
+    expect(config.authentication).toEqual({
+      type: "azure-active-directory-default",
+      options: { clientId: "managed-identity-id" },
+    });
+    expect(config).not.toHaveProperty("user");
+    expect(config.options?.encrypt).toBe(true);
+  });
+
+  it("maps a service principal", () => {
+    const config = connectionConfig({
+      SQL_AUTH_TYPE: "azure-service-principal",
+      AZURE_CLIENT_ID: "app",
+      AZURE_CLIENT_SECRET: "secret",
+      AZURE_TENANT_ID: "tenant",
+    });
+    expect(config.authentication).toEqual({
+      type: "azure-active-directory-service-principal-secret",
+      options: { clientId: "app", clientSecret: "secret", tenantId: "tenant" },
+    });
+  });
+
+  it("maps an access token and honors an explicit ENCRYPT=false", () => {
+    const config = connectionConfig({
+      SQL_AUTH_TYPE: "azure-access-token",
+      AZURE_ACCESS_TOKEN: "token",
+      ENCRYPT: "false",
+    });
+    expect(config.authentication).toEqual({
+      type: "azure-active-directory-access-token",
+      options: { token: "token" },
+    });
+    expect(config.options?.encrypt).toBe(false);
+  });
+
+  it.each([
+    [{ SQL_AUTH_TYPE: "ntlm", DB_USER: "u", DB_PASSWORD: "p" }, "DB_DOMAIN"],
+    [{ SQL_AUTH_TYPE: "azure-service-principal", AZURE_CLIENT_ID: "a" }, "AZURE_CLIENT_SECRET"],
+    [{ SQL_AUTH_TYPE: "azure-access-token" }, "AZURE_ACCESS_TOKEN"],
+    [{ SQL_AUTH_TYPE: "kerberos" }, "SQL_AUTH_TYPE"],
+  ])("rejects incomplete auth config %o", (env, missing) => {
+    expect(() => connectionConfig(env)).toThrow(missing);
+  });
+
+  it("does not require DB_USER for Entra ID auth", () => {
+    expect(() => connectionConfig({ SQL_AUTH_TYPE: "azure-default" })).not.toThrow();
+  });
+});

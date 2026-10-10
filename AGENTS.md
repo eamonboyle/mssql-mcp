@@ -16,10 +16,10 @@ After the database is up, run **`npm run test:e2e`** to exercise **every registe
 ```bash
 cp .env.example .env   # if needed
 npm run db:up          # start Docker MSSQL + seed (skip if already healthy)
-npm run test:e2e       # builds, starts HTTP server (ENABLE_DDL=true), runs all tools
+npm run test:e2e       # builds, starts HTTP server (ENABLE_DDL=true), runs all tools, then protocol checks
 ```
 
-Scripts: `scripts/e2e-mcp-tools.sh` (orchestrator) and `scripts/e2e-mcp-tools.mjs` (harness). Details: [`docs/dev-database.md`](docs/dev-database.md).
+Scripts: `scripts/e2e-mcp-tools.sh` (orchestrator), `scripts/e2e-mcp-tools.mjs` (tool harness), and `scripts/e2e-protocol.mjs` (official MCP client in both protocol eras, port 3334). Details: [`docs/dev-database.md`](docs/dev-database.md).
 
 **Cloud agent checklist:**
 
@@ -46,8 +46,10 @@ Default connection (matches `.env.example`): `SERVER_NAME=127.0.0.1`, `DATABASE_
 
 ### Non-obvious gotchas
 
-- Default transport is **stdio** (launched by an MCP client). For a standalone HTTP server set `MCP_TRANSPORT=http` (binds `MCP_HTTP_HOST:MCP_HTTP_PORT`, default `127.0.0.1:3333`). The HTTP transport is stateless; POST JSON-RPC to `/mcp` with header `Accept: application/json, text/event-stream` (responses come back as SSE `event: message`). `MCP_BASE_URL` is the optional public base advertised in logs and `mssql://config/server`; it does not change the local bind address.
-- Write tools (`insert_data`, `update_data`, `delete_data`) require confirmation. Non-elicitation clients must pass `confirmed: true` in the tool arguments. `update_data`/`delete_data` additionally need a `previewToken` from `preview_update`/`preview_delete` when `REQUIRE_WRITE_PREVIEW` is true (the default).
+- Default transport is **stdio** (launched by an MCP client). For a standalone HTTP server set `MCP_TRANSPORT=http` (binds `MCP_HTTP_HOST:MCP_HTTP_PORT`, default `127.0.0.1:3333`). The HTTP transport is stateless and serves both the 2026-07-28 protocol and 2025-era clients; POST JSON-RPC to `/mcp` with `Content-Type: application/json` and `Accept: application/json, text/event-stream`. 2025-era responses come back as SSE `event: message`. `Host`/`Origin` headers must be loopback (or in `MCP_HTTP_ALLOWED_HOSTS`); a non-loopback bind needs `MCP_HTTP_AUTH_TOKEN`. `MCP_BASE_URL` is the optional public base advertised in logs and `mssql://config/server`; it does not change the local bind address.
+- Write tools (`insert_data`, `update_data`, `delete_data`) require confirmation. Clients with elicitation get a confirmation prompt (via `inputRequired` on 2026-07-28, classic elicitation on 2025-era connections); non-elicitation clients must pass `confirmed: true` in the tool arguments. `update_data`/`delete_data` additionally need a `previewToken` from `preview_update`/`preview_delete` when `REQUIRE_WRITE_PREVIEW` is true (the default).
 - `insert_data` accepts optional `schemaName` (same as other write tools). Use `tableName` for the table only — not `schema.table` as a dotted string.
 - DDL tools (`create_table`, `create_index`, `drop_table`) are not registered in read-only mode. Otherwise they are registered but calls are blocked unless `ENABLE_DDL=true`.
+- MCP SDK is v2 (`@modelcontextprotocol/server`, `/node`); the v1 `@modelcontextprotocol/sdk` package is no longer a dependency. Node 22+ is required (`tedious` 20 uses Node 22 APIs); `src/checkNodeVersion.ts` exits with a clear message on older versions. CI runs Node 22, 24 and 26.
+- `vendor/sprintf-js` replaces the unmaintained `sprintf-js` used by `tedious` (GHSA-hp3w-g68c-fv3c) via `overrides` plus a `file:` devDependency (a relative `file:` override resolves against tedious's folder and breaks `npm ci`). Delete both once tedious releases tediousjs/tedious#1814.
 - `ENCRYPT=false` preserves plain local SQL Server connections. For TLS, set `ENCRYPT=true`; `TRUST_SERVER_CERTIFICATE` is passed independently to the driver.

@@ -1,7 +1,7 @@
 import {
   McpServer,
   ResourceTemplate,
-} from "@modelcontextprotocol/sdk/server/mcp.js";
+} from "@modelcontextprotocol/server";
 import {
   describeObjectDependencies,
   describeDatabaseObject,
@@ -11,6 +11,7 @@ import {
   listDatabaseObjects,
   listDatabaseTables,
 } from "./schema.js";
+import type { SqlAuthType } from "./config.js";
 import { promptDefinitions } from "./promptRegistry.js";
 import { ServerState } from "./serverState.js";
 
@@ -36,6 +37,7 @@ export interface ResourceRegistryContext {
   queryTimeoutMs: number;
   transport: "stdio" | "http";
   publicEndpoint?: string;
+  sqlAuthType: SqlAuthType;
   encrypt: boolean;
   trustServerCertificate: boolean;
   enableDdl: boolean;
@@ -125,6 +127,7 @@ async function readResourcePayload(
           queryTimeoutMs: context.queryTimeoutMs,
           transport: context.transport,
           publicEndpoint: context.publicEndpoint,
+          sqlAuthType: context.sqlAuthType,
           encrypt: context.encrypt,
           trustServerCertificate: context.trustServerCertificate,
           enableDdl: context.enableDdl,

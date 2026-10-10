@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { completable } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { getAllowedDatabases } from "./db.js";
 

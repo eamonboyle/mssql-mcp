@@ -1,5 +1,5 @@
-import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
-import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
+import type { ToolAnnotations } from "@modelcontextprotocol/server";
+import { completable } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { toolResultOutputSchema } from "./mcpResults.js";
 import { AnalyzeTableTool } from "./tools/AnalyzeTableTool.js";

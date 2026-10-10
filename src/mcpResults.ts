@@ -1,4 +1,4 @@
-import type { CallToolResult, ContentBlock, ResourceLink } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, ContentBlock, ResourceLink } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 export const toolResultOutputSchema = {

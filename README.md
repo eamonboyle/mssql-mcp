@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![npm version](https://img.shields.io/npm/v/@eamonboyle/mssql-mcp.svg)](https://www.npmjs.com/package/@eamonboyle/mssql-mcp)
-[![Node.js 20+](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![Node.js 22+](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen)](https://nodejs.org/)
 [![X: @eamonyo](https://img.shields.io/badge/X-%40eamonyo-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/eamonyo)
 
 [![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=mssql-local&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBlYW1vbmJveWxlL21zc3FsLW1jcCJdLCJlbnYiOnsiU0VSVkVSX05BTUUiOiJsb2NhbGhvc3QiLCJEQVRBQkFTRV9OQU1FIjoiQXBwREIiLCJEQVRBQkFTRVMiOiJBcHBEQixSZXBvcnRpbmdEQiIsIkRCX1VTRVIiOiJ5b3VyX3VzZXJuYW1lIiwiREJfUEFTU1dPUkQiOiJ5b3VyX3Bhc3N3b3JkIiwiVFJVU1RfU0VSVkVSX0NFUlRJRklDQVRFIjoidHJ1ZSIsIlJFQURPTkxZIjoiZmFsc2UiLCJFTkFCTEVfRERMIjoiZmFsc2UifX0=)
@@ -30,9 +30,11 @@ Supported clients include Cursor, VS Code, Claude Desktop, and other MCP-compati
 
 ### Prerequisites
 
-- Node.js 20 or newer
+- Node.js 22 or newer (check with `node --version`)
 - Microsoft SQL Server
 - An MCP-compatible client
+
+> **Still on Node.js 20?** Version 1.6.0 is the last release that runs on Node 20, which reached end-of-life in April 2026. Newer releases stop at startup with a message explaining this. Upgrade Node.js, or pin the older release in your MCP configuration with `npx -y @eamonboyle/mssql-mcp@1.6.0`.
 
 The recommended installation runs the published package directly:
 
@@ -112,10 +114,31 @@ The server validates these variables before starting. Missing or blank values pr
 
 | Variable                   | Accepted format        | Purpose                                                               |
 | -------------------------- | ---------------------- | --------------------------------------------------------------------- |
-| `DB_USER`                  | Nonblank string        | SQL authentication username                                           |
-| `DB_PASSWORD`              | Nonblank string        | SQL authentication password                                           |
+| `DB_USER`                  | Nonblank string        | SQL login (or NTLM) username; not used for Entra ID auth              |
+| `DB_PASSWORD`              | Nonblank string        | SQL login (or NTLM) password; not used for Entra ID auth              |
 
 At least one database variable is required: set `DATABASE_NAME`, `DATABASES`, or both. With only `DATABASE_NAME`, that database is both the default and the allowlist. With only `DATABASES`, the first entry is the default. When both are set, `DATABASE_NAME` is used if it appears in `DATABASES`; otherwise the first allowed database is the runtime default.
+
+### Authentication
+
+`SQL_AUTH_TYPE` selects how the server signs in to SQL Server. The default, `sql`, uses `DB_USER` and `DB_PASSWORD`.
+
+| `SQL_AUTH_TYPE`           | Also requires                                              | Notes                                                                                              |
+| ------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `sql` (default)           | `DB_USER`, `DB_PASSWORD`                                   | SQL Server login                                                                                   |
+| `ntlm`                    | `DB_USER`, `DB_PASSWORD`, `DB_DOMAIN`                      | Windows domain account over NTLM; integrated (SSPI) auth of the current user is not supported      |
+| `azure-default`           | Optional `AZURE_CLIENT_ID`                                 | Microsoft Entra ID via `DefaultAzureCredential`: `az login`, managed identity, workload identity, environment credentials |
+| `azure-service-principal` | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` | Entra ID app registration with a client secret                                                     |
+| `azure-access-token`      | `AZURE_ACCESS_TOKEN`                                       | A pre-acquired Entra ID token; it is not refreshed, so restart the server when it expires          |
+
+Entra ID types default `ENCRYPT` to `true` because Azure SQL requires TLS. For Azure SQL with `azure-default` after `az login`:
+
+```text
+SERVER_NAME=myserver.database.windows.net
+DATABASE_NAME=mydb
+SQL_AUTH_TYPE=azure-default
+TRUST_SERVER_CERTIFICATE=false
+```
 
 ### Hostname and port
 
@@ -152,7 +175,8 @@ Optional variables do not need empty placeholders. In-code defaults apply when t
 | ----------------------- | ----------------------------- | --------------------- | -------------------------------------------------------------- |
 | `SERVER_NAME`           | Hostname                      | `localhost`           | SQL Server hostname only                                      |
 | `SERVER_PORT`           | Integer from `1` to `65535`   | Driver default `1433` | SQL Server TCP port; omitted from the driver config when unset |
-| `ENCRYPT`               | `"true"` or `"false"`         | `"false"`             | Enable TLS encryption in the `mssql` driver                    |
+| `SQL_AUTH_TYPE`         | See [Authentication](#authentication) | `sql`         | SQL Server authentication method                               |
+| `ENCRYPT`               | `"true"` or `"false"`         | `"false"` (`"true"` for Entra ID) | Enable TLS encryption in the `mssql` driver        |
 | `TRUST_SERVER_CERTIFICATE` | `"true"` or `"false"`      | `"true"`              | Trust the SQL Server certificate without validating its chain |
 | `READONLY`              | `"true"` or `"false"`         | `"false"`             | Remove write and DDL tools when enabled                        |
 | `ENABLE_DDL`            | `"true"` or `"false"`         | `"false"`             | Allow registered DDL tools to execute                          |
@@ -165,6 +189,9 @@ Optional variables do not need empty placeholders. In-code defaults apply when t
 | `MCP_HTTP_HOST`         | Host or IP string             | `127.0.0.1`           | Bind address for HTTP mode                                     |
 | `MCP_HTTP_PORT`         | Integer from `1` to `65535`   | `3333`                | Bind port for HTTP mode                                        |
 | `MCP_BASE_URL`          | Absolute HTTP or HTTPS URL    | Unset                 | Public HTTP base advertised by the server; `/mcp` is appended  |
+| `MCP_HTTP_AUTH_TOKEN`   | Nonblank string               | Unset                 | Require `Authorization: Bearer <token>` on HTTP requests       |
+| `MCP_HTTP_ALLOWED_HOSTS`| Comma-separated hostnames     | Loopback + bind host + `MCP_BASE_URL` host | Hostnames accepted in `Host`/`Origin` headers |
+| `MCP_HTTP_ALLOW_UNAUTHENTICATED` | `"true"` or `"false"` | `"false"`           | Allow a non-loopback `MCP_HTTP_HOST` without a token           |
 
 Blank optional values use their documented defaults. Explicit nonblank invalid integers, booleans, ports, URLs, or transport names fail validation rather than falling back silently.
 
@@ -180,7 +207,7 @@ Blank optional values use their documented defaults. Explicit nonblank invalid i
 
 When writes are enabled:
 
-1. `insert_data`, `update_data`, `delete_data`, and DDL tools require `confirmed: true` unless the client completes MCP elicitation.
+1. `insert_data`, `update_data`, `delete_data`, and DDL tools ask the user to confirm through MCP elicitation when the client supports it (Cursor, VS Code, Claude). Clients without elicitation must pass `confirmed: true`. Over HTTP, prompts work for 2026-07-28 clients; 2025-era HTTP clients must pass `confirmed: true` because the stateless transport cannot carry their elicitation round trip.
 2. `update_data` and `delete_data` require nonempty structured `filters`, not raw SQL WHERE text.
 3. With the default `REQUIRE_WRITE_PREVIEW=true`, call `preview_update` or `preview_delete` first and pass its `previewToken` to the matching write.
 4. Preview tokens expire after 10 minutes, are single-use, and are bound to the same tool, table, filters, and update payload.
@@ -206,7 +233,13 @@ The default endpoint is:
 http://127.0.0.1:3333/mcp
 ```
 
-An HTTP client must accept `application/json, text/event-stream`. Each HTTP request creates a fresh MCP server instance. Preview tokens use a process-wide store so they remain valid across requests to the same process.
+The HTTP endpoint serves both the 2026-07-28 MCP protocol and 2025-era clients. A client must accept `application/json, text/event-stream`. Each HTTP request creates a fresh MCP server instance; preview tokens, stored query results, and query plans use process-wide stores, so they stay valid across requests to the same process.
+
+HTTP security:
+
+- Only `/mcp` is served. `Host` and `Origin` headers are checked against `MCP_HTTP_ALLOWED_HOSTS` (by default loopback names, the bind host, and the `MCP_BASE_URL` host) to block DNS-rebinding attacks from web pages.
+- Set `MCP_HTTP_AUTH_TOKEN` to require `Authorization: Bearer <token>`.
+- Binding `MCP_HTTP_HOST` to anything other than loopback fails at startup unless `MCP_HTTP_AUTH_TOKEN` is set, or `MCP_HTTP_ALLOW_UNAUTHENTICATED=true` acknowledges that another layer (reverse proxy, network policy) protects the endpoint.
 
 For a reverse proxy or externally published path, set `MCP_BASE_URL` to the public base without the final `/mcp` segment:
 
@@ -222,11 +255,14 @@ Cursor HTTP configuration:
 {
   "mcpServers": {
     "mssql-http": {
-      "url": "http://127.0.0.1:3333/mcp"
+      "url": "http://127.0.0.1:3333/mcp",
+      "headers": { "Authorization": "Bearer ${env:MSSQL_MCP_TOKEN}" }
     }
   }
 }
 ```
+
+Omit `headers` when `MCP_HTTP_AUTH_TOKEN` is not set.
 
 ## Tools
 
@@ -243,7 +279,7 @@ Cursor HTTP configuration:
 | `describe_relationships` | Read  | Describe foreign keys involving one table                        |
 | `describe_dependencies`  | Read  | List objects that depend on an object                            |
 | `analyze_table`          | Read  | Return row counts, storage, and index details                    |
-| `read_data`              | Read  | Execute a validated SELECT query                                 |
+| `read_data`              | Read  | Execute a validated SELECT (or CTE) query in a rolled-back transaction |
 | `search_data`            | Read  | Search columns with parameterized LIKE predicates                |
 | `explain_query`          | Read  | Generate an estimated SELECT execution plan                      |
 | `preview_update`         | Read  | Preview an update and issue a token when required                |
@@ -270,8 +306,19 @@ Clients with MCP resource support can discover:
 - `mssql://database/{databaseName}/object/{schemaName}/{objectName}/dependencies`
 - `mssql://query-plan/{planId}`
 - `mssql://query-result/{resultId}`
+- `ui://mssql/query-results.html` (MCP Apps view)
 
 Table and object listings are cached for 30 seconds. Query plan and large query result resources are temporary process-local artifacts.
+
+### Query results grid (MCP Apps)
+
+`read_data` and `search_data` declare an [MCP Apps](https://modelcontextprotocol.io/extensions/apps) view. Hosts that support MCP Apps (Claude, VS Code, Cursor 2.6+, and others) render results as a sortable, filterable grid inline in the conversation. Other clients ignore the view and use the normal text and structured result.
+
+### read_data rules
+
+`read_data` accepts one `SELECT` statement, optionally preceded by common table expressions (`WITH ...`). String literals, comments, and bracketed or quoted identifiers are ignored when checking for disallowed keywords, so `[Update]` columns or `'Update pending'` values are fine. Statements that modify data, execute code (`EXEC`, `sp_`/`xp_` procedures), declare variables, or read server identity (`@@` variables, `SUSER_SNAME()`) are rejected.
+
+Every query also runs inside a transaction that is always rolled back, and results stream until `MAX_ROWS` rows have been read, at which point the query is cancelled and the result is marked `truncated`. SQL Server error messages (for example `Invalid column name`) are returned so the model can correct the query. Cancelling a tool call in the client cancels the running SQL request.
 
 Available prompts:
 
@@ -296,7 +343,7 @@ The repository includes a seeded SQL Server 2022 Docker environment:
 ```bash
 cp .env.example .env
 npm run db:up
-npm run test:e2e
+npm run test:e2e   # every tool over HTTP, then protocol checks (2026-07-28 + 2025 stdio)
 ```
 
 See [`docs/dev-database.md`](docs/dev-database.md) for database and E2E details and [`CONTRIBUTING.md`](CONTRIBUTING.md) for build, lint, and test commands.
@@ -308,6 +355,8 @@ See [`docs/dev-database.md`](docs/dev-database.md) for database and E2E details 
 - `DDL_DISABLED`: set `ENABLE_DDL` to `"true"` only when DDL access is intended.
 - `PREVIEW_TOKEN_INVALID`: create a new matching preview and use its token once within 10 minutes.
 - stdio JSON parse errors: ensure scripts and dependencies write logs to stderr, not stdout.
+- HTTP `403 Forbidden`: the request's `Host` or `Origin` is not in `MCP_HTTP_ALLOWED_HOSTS`; add the public hostname (or set `MCP_BASE_URL`).
+- HTTP `401 Unauthorized`: send `Authorization: Bearer <MCP_HTTP_AUTH_TOKEN>`.
 - database rejected: add it to `DATABASES` and use the exact allowed name in `databaseName`.
 
 ## Security
@@ -316,7 +365,8 @@ See [`docs/dev-database.md`](docs/dev-database.md) for database and E2E details 
 - Set `READONLY=true` whenever writes are unnecessary.
 - Keep `ENABLE_DDL=false` unless schema changes are explicitly needed.
 - Keep credentials out of source control and use your client's secret-input support or a secrets manager.
-- Bind HTTP mode to a trusted interface and add network authentication or isolation outside this package.
+- Keep HTTP mode on loopback, or set `MCP_HTTP_AUTH_TOKEN` and `MCP_HTTP_ALLOWED_HOSTS` when exposing it. Prefer TLS termination at a reverse proxy.
+- `read_data` validation and its rolled-back transaction are defense in depth; a least-privilege login is still the primary control.
 - Set `ENCRYPT=true` for TLS deployments and keep `TRUST_SERVER_CERTIFICATE=false` when the server certificate is publicly or privately trusted.
 - Report vulnerabilities through the [security policy](.github/SECURITY.md).
 
