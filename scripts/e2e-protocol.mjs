@@ -14,12 +14,13 @@
  */
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
 const HTTP_PORT = Number(process.env.MCP_E2E_PROTOCOL_PORT ?? 3334);
 const HTTP_URL = new URL(`http://127.0.0.1:${HTTP_PORT}/mcp`);
-const SERVER_ENTRY = new URL("../dist/index.js", import.meta.url).pathname;
+const SERVER_ENTRY = fileURLToPath(new URL("../dist/index.js", import.meta.url));
 
 /** @type {Array<{ name: string; status: 'PASS' | 'FAIL'; detail?: string }>} */
 const results = [];

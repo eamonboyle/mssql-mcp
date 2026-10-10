@@ -251,16 +251,18 @@ export function parseSqlConnectionConfig(
   env: Environment = process.env
 ): SqlConnectionConfig {
   const auth = parseSqlAuthConfig(env);
+  const isEntraAuth = auth.type.startsWith("azure-");
   return {
     serverName: env.SERVER_NAME?.trim() || "localhost",
     serverPort: parseServerPort(env.SERVER_PORT),
     auth,
-    // Azure SQL requires TLS, so Entra ID auth types default to encrypting.
-    encrypt: parseBoolean("ENCRYPT", env.ENCRYPT, auth.type.startsWith("azure-")),
+    // Azure SQL requires TLS and presents publicly trusted certificates, so
+    // Entra ID auth types default to encrypting and validating the certificate.
+    encrypt: parseBoolean("ENCRYPT", env.ENCRYPT, isEntraAuth),
     trustServerCertificate: parseBoolean(
       "TRUST_SERVER_CERTIFICATE",
       env.TRUST_SERVER_CERTIFICATE,
-      true
+      !isEntraAuth
     ),
     connectionTimeoutSeconds: parseInteger(
       "CONNECTION_TIMEOUT",
@@ -383,8 +385,13 @@ export function getMcpEndpointUrl(
 ): string {
   const baseUrl =
     environment.mcpBaseUrl ??
-    `http://${environment.mcpHttpHost}:${environment.mcpHttpPort}`;
+    `http://${formatUrlHost(environment.mcpHttpHost)}:${environment.mcpHttpPort}`;
   return `${baseUrl.replace(/\/+$/, "")}/mcp`;
+}
+
+/** Brackets IPv6 literals (`::1` -> `[::1]`) for use in a URL authority. */
+export function formatUrlHost(host: string): string {
+  return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
 }
 
 export function getMaxWriteRows(): number {

@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const mssqlMockState = vi.hoisted(() => ({
@@ -46,12 +47,14 @@ import {
   parseSqlConnectionConfig,
 } from "../config.js";
 import {
+  bindRequestCancellation,
   buildSqlConfig,
   configureDatabase,
   configureSqlConnection,
   getAllowedDatabases,
   getSqlRequest,
   resolveDatabaseName,
+  runWithSqlRequestContext,
 } from "../db.js";
 
 function setRequiredEnvironment() {
@@ -474,6 +477,15 @@ describe("buildSqlConfig authentication", () => {
     });
     expect(config).not.toHaveProperty("user");
     expect(config.options?.encrypt).toBe(true);
+    expect(config.options?.trustServerCertificate).toBe(false);
+  });
+
+  it("lets TRUST_SERVER_CERTIFICATE override the Entra ID default", () => {
+    const config = connectionConfig({
+      SQL_AUTH_TYPE: "azure-default",
+      TRUST_SERVER_CERTIFICATE: "true",
+    });
+    expect(config.options?.trustServerCertificate).toBe(true);
   });
 
   it("maps a service principal", () => {
@@ -513,5 +525,69 @@ describe("buildSqlConfig authentication", () => {
 
   it("does not require DB_USER for Entra ID auth", () => {
     expect(() => connectionConfig({ SQL_AUTH_TYPE: "azure-default" })).not.toThrow();
+  });
+});
+
+describe("bindRequestCancellation", () => {
+  function fakeRequest() {
+    const request = new EventEmitter() as EventEmitter & { cancel: () => void };
+    request.cancel = vi.fn();
+    return request;
+  }
+  type BindableRequest = Parameters<typeof bindRequestCancellation>[0];
+
+  it("cancels the SQL request when the MCP request is aborted", async () => {
+    const controller = new AbortController();
+    const request = fakeRequest();
+    await runWithSqlRequestContext({ signal: controller.signal }, async () => {
+      bindRequestCancellation(request as unknown as BindableRequest);
+      controller.abort();
+    });
+    expect(request.cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes abort listeners when the MCP request finishes", async () => {
+    const controller = new AbortController();
+    const request = fakeRequest();
+    await runWithSqlRequestContext({ signal: controller.signal }, async () => {
+      // Non-stream requests never emit "done".
+      bindRequestCancellation(request as unknown as BindableRequest);
+    });
+    controller.abort();
+    expect(request.cancel).not.toHaveBeenCalled();
+  });
+
+  it("removes abort listeners when the MCP request fails", async () => {
+    const controller = new AbortController();
+    const request = fakeRequest();
+    await expect(
+      runWithSqlRequestContext({ signal: controller.signal }, async () => {
+        bindRequestCancellation(request as unknown as BindableRequest);
+        throw new Error("boom");
+      })
+    ).rejects.toThrow("boom");
+    controller.abort();
+    expect(request.cancel).not.toHaveBeenCalled();
+  });
+
+  it("releases a streamed request's listener on done", async () => {
+    const controller = new AbortController();
+    const request = fakeRequest();
+    await runWithSqlRequestContext({ signal: controller.signal }, async () => {
+      bindRequestCancellation(request as unknown as BindableRequest);
+      request.emit("done");
+      controller.abort();
+    });
+    expect(request.cancel).not.toHaveBeenCalled();
+  });
+
+  it("fails fast when the MCP request is already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      runWithSqlRequestContext({ signal: controller.signal }, async () =>
+        bindRequestCancellation(fakeRequest() as unknown as BindableRequest)
+      )
+    ).rejects.toThrow();
   });
 });

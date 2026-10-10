@@ -131,13 +131,12 @@ At least one database variable is required: set `DATABASE_NAME`, `DATABASES`, or
 | `azure-service-principal` | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` | Entra ID app registration with a client secret                                                     |
 | `azure-access-token`      | `AZURE_ACCESS_TOKEN`                                       | A pre-acquired Entra ID token; it is not refreshed, so restart the server when it expires          |
 
-Entra ID types default `ENCRYPT` to `true` because Azure SQL requires TLS. For Azure SQL with `azure-default` after `az login`:
+Entra ID types default `ENCRYPT` to `true` and `TRUST_SERVER_CERTIFICATE` to `false`, because Azure SQL requires TLS and presents publicly trusted certificates. For Azure SQL with `azure-default` after `az login`:
 
 ```text
 SERVER_NAME=myserver.database.windows.net
 DATABASE_NAME=mydb
 SQL_AUTH_TYPE=azure-default
-TRUST_SERVER_CERTIFICATE=false
 ```
 
 ### Hostname and port
@@ -177,7 +176,7 @@ Optional variables do not need empty placeholders. In-code defaults apply when t
 | `SERVER_PORT`           | Integer from `1` to `65535`   | Driver default `1433` | SQL Server TCP port; omitted from the driver config when unset |
 | `SQL_AUTH_TYPE`         | See [Authentication](#authentication) | `sql`         | SQL Server authentication method                               |
 | `ENCRYPT`               | `"true"` or `"false"`         | `"false"` (`"true"` for Entra ID) | Enable TLS encryption in the `mssql` driver        |
-| `TRUST_SERVER_CERTIFICATE` | `"true"` or `"false"`      | `"true"`              | Trust the SQL Server certificate without validating its chain |
+| `TRUST_SERVER_CERTIFICATE` | `"true"` or `"false"`      | `"true"` (`"false"` for Entra ID) | Trust the SQL Server certificate without validating its chain |
 | `READONLY`              | `"true"` or `"false"`         | `"false"`             | Remove write and DDL tools when enabled                        |
 | `ENABLE_DDL`            | `"true"` or `"false"`         | `"false"`             | Allow registered DDL tools to execute                          |
 | `CONNECTION_TIMEOUT`    | Positive integer seconds      | `30`                  | SQL Server connection timeout                                  |
@@ -239,6 +238,7 @@ HTTP security:
 
 - Only `/mcp` is served. `Host` and `Origin` headers are checked against `MCP_HTTP_ALLOWED_HOSTS` (by default loopback names, the bind host, and the `MCP_BASE_URL` host) to block DNS-rebinding attacks from web pages.
 - Set `MCP_HTTP_AUTH_TOKEN` to require `Authorization: Bearer <token>`.
+- The server speaks plain HTTP. Off loopback, put a TLS-terminating reverse proxy in front so the bearer token and query results are encrypted, and set `MCP_BASE_URL` to its `https://` address. Startup logs a warning when a non-loopback bind has no `https://` `MCP_BASE_URL`.
 - Binding `MCP_HTTP_HOST` to anything other than loopback fails at startup unless `MCP_HTTP_AUTH_TOKEN` is set, or `MCP_HTTP_ALLOW_UNAUTHENTICATED=true` acknowledges that another layer (reverse proxy, network policy) protects the endpoint.
 
 For a reverse proxy or externally published path, set `MCP_BASE_URL` to the public base without the final `/mcp` segment:

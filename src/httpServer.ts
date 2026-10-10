@@ -11,7 +11,11 @@ import {
   toNodeHandler,
 } from "@modelcontextprotocol/node";
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import { type EnvironmentConfig, getMcpEndpointUrl } from "./config.js";
+import {
+  type EnvironmentConfig,
+  formatUrlHost,
+  getMcpEndpointUrl,
+} from "./config.js";
 import { createServerInstance } from "./server.js";
 import type { ServerState } from "./serverState.js";
 
@@ -79,6 +83,23 @@ export function assertHttpExposureAllowed(
   throw new Error(
     `MCP_HTTP_HOST=${environment.mcpHttpHost} exposes the server beyond loopback. Set MCP_HTTP_AUTH_TOKEN, or set MCP_HTTP_ALLOW_UNAUTHENTICATED=true if another layer (reverse proxy, network policy) protects it.`
   );
+}
+
+/**
+ * Warns when the listener is reachable off-host over plain HTTP: the bearer
+ * token and query results would cross the network unencrypted. An https
+ * MCP_BASE_URL signals that a TLS-terminating proxy sits in front.
+ */
+export function httpExposureWarning(
+  environment: Pick<EnvironmentConfig, "mcpHttpHost" | "mcpBaseUrl">
+): string | undefined {
+  if (
+    isLoopbackHost(environment.mcpHttpHost) ||
+    environment.mcpBaseUrl?.startsWith("https://")
+  ) {
+    return undefined;
+  }
+  return `Warning: MCP_HTTP_HOST=${environment.mcpHttpHost} serves plain HTTP beyond loopback, so the bearer token and query results are sent unencrypted. Put a TLS-terminating reverse proxy in front and set MCP_BASE_URL to its https:// address.`;
 }
 
 export function isAuthorized(
@@ -160,7 +181,7 @@ export async function startHttpServer(
 
   const host = environment.mcpHttpHost;
   const port = environment.mcpHttpPort;
-  const localEndpoint = `http://${host}:${port}${MCP_PATH}`;
+  const localEndpoint = `http://${formatUrlHost(host)}:${port}${MCP_PATH}`;
   const publicEndpoint = getMcpEndpointUrl(environment);
   const httpServer = createServer(
     createHttpRequestListener(state, environment)
@@ -177,6 +198,10 @@ export async function startHttpServer(
   }
   if (environment.mcpHttpAuthToken) {
     console.error("Bearer token authentication is enabled.");
+  }
+  const exposureWarning = httpExposureWarning(environment);
+  if (exposureWarning) {
+    console.error(exposureWarning);
   }
 
   return httpServer;

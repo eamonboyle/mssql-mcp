@@ -259,6 +259,16 @@ describe("MCP_BASE_URL", () => {
     expect(getMcpEndpointUrl(config)).toBe("http://0.0.0.0:4444/mcp");
   });
 
+  it("brackets an IPv6 bind host in the derived endpoint", () => {
+    const config = parseEnvironmentConfig({
+      ...requiredEnvironment,
+      MCP_HTTP_HOST: "::1",
+      MCP_HTTP_PORT: "4444",
+    });
+
+    expect(getMcpEndpointUrl(config)).toBe("http://[::1]:4444/mcp");
+  });
+
   it.each([
     "example.test",
     "/relative",

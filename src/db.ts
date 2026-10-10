@@ -16,7 +16,13 @@ interface SqlRequestContext {
   signal?: AbortSignal;
 }
 
-const requestContext = new AsyncLocalStorage<SqlRequestContext>();
+interface SqlRequestStore extends SqlRequestContext {
+  // Abort listeners added by bindRequestCancellation, removed when the MCP
+  // request finishes (mssql only emits "done" in stream mode).
+  cleanups: Set<() => void>;
+}
+
+const requestContext = new AsyncLocalStorage<SqlRequestStore>();
 
 /**
  * Runs `fn` with an MCP request context so SQL requests created inside it are
@@ -26,21 +32,38 @@ export function runWithSqlRequestContext<T>(
   context: SqlRequestContext,
   fn: () => Promise<T>
 ): Promise<T> {
-  return requestContext.run(context, fn);
+  const store: SqlRequestStore = { ...context, cleanups: new Set() };
+  return requestContext.run(store, async () => {
+    try {
+      return await fn();
+    } finally {
+      for (const cleanup of store.cleanups) {
+        cleanup();
+      }
+      store.cleanups.clear();
+    }
+  });
 }
 
 /** Cancels `request` when the current MCP request is aborted. */
 export function bindRequestCancellation(request: sql.Request): sql.Request {
-  const signal = requestContext.getStore()?.signal;
-  if (!signal) {
+  const store = requestContext.getStore();
+  const signal = store?.signal;
+  if (!store || !signal) {
     return request;
   }
   // mssql resets its cancel flag when a query starts, so a cancel issued
   // before then would be lost: fail fast instead.
   signal.throwIfAborted();
   const onAbort = () => request.cancel();
+  const cleanup = () => {
+    signal.removeEventListener("abort", onAbort);
+    store.cleanups.delete(cleanup);
+  };
   signal.addEventListener("abort", onAbort, { once: true });
-  request.once("done", () => signal.removeEventListener("abort", onAbort));
+  store.cleanups.add(cleanup);
+  // Streamed requests can release the listener as soon as they finish.
+  request.once("done", cleanup);
   return request;
 }
 

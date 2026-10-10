@@ -5,6 +5,7 @@ import { parseEnvironmentConfig, type EnvironmentConfig } from "../config.js";
 import {
   assertHttpExposureAllowed,
   createHttpRequestListener,
+  httpExposureWarning,
   isAuthorized,
   isLoopbackHost,
   resolveAllowedHostnames,
@@ -152,5 +153,31 @@ describe("HTTP request listener", () => {
       headers: { ...listTools.headers, authorization: "Bearer s3cret" },
     });
     expect(allowed.status).toBe(200);
+  });
+});
+
+describe("httpExposureWarning", () => {
+  it("is silent on loopback", () => {
+    expect(httpExposureWarning(environment())).toBeUndefined();
+  });
+
+  it("warns about plain HTTP beyond loopback", () => {
+    expect(
+      httpExposureWarning(
+        environment({ MCP_HTTP_HOST: "0.0.0.0", MCP_HTTP_AUTH_TOKEN: "t" })
+      )
+    ).toMatch(/unencrypted/);
+  });
+
+  it("is silent when an https MCP_BASE_URL fronts the listener", () => {
+    expect(
+      httpExposureWarning(
+        environment({
+          MCP_HTTP_HOST: "0.0.0.0",
+          MCP_HTTP_AUTH_TOKEN: "t",
+          MCP_BASE_URL: "https://mcp.example.test",
+        })
+      )
+    ).toBeUndefined();
   });
 });

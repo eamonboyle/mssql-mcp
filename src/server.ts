@@ -12,7 +12,12 @@ import {
   registerQueryResultsApp,
 } from "./apps/queryResultsApp.js";
 import { type EnvironmentConfig, getMcpEndpointUrl } from "./config.js";
-import { getAllowedDatabases, runWithSqlRequestContext } from "./db.js";
+import { describeConfirmation } from "./confirmationMessage.js";
+import {
+  getAllowedDatabases,
+  getDefaultDatabaseName,
+  runWithSqlRequestContext,
+} from "./db.js";
 import {
   createResourceLink,
   createToolResult,
@@ -195,7 +200,11 @@ export function createServerInstance(
             return inputRequired({
               inputRequests: {
                 [CONFIRMATION_INPUT_KEY]: inputRequired.elicit({
-                  message: `Confirm ${definition.tool.name} after reviewing its preview and impact.`,
+                  message: describeConfirmation(
+                    definition.tool.name,
+                    requestArgs,
+                    getDefaultDatabaseName()
+                  ),
                   requestedSchema: CONFIRMATION_SCHEMA,
                 }),
               },

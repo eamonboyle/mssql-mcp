@@ -12,9 +12,9 @@ Contains breaking changes (Node.js 22+, HTTP exposure rules); suggested release:
 ### Added
 
 - Support for the 2026-07-28 MCP specification via the v2 TypeScript SDK (`@modelcontextprotocol/server` and `@modelcontextprotocol/node`). 2025-era clients, including Cursor over stdio, are still served on the same transports.
-- Write confirmations use multi-round-trip `input_required` elicitation on 2026-07-28 connections and classic elicitation on 2025-era connections. Clients without elicitation still use `confirmed: true`.
-- `SQL_AUTH_TYPE` with `ntlm`, `azure-default` (DefaultAzureCredential / managed identity / `az login`), `azure-service-principal`, and `azure-access-token`, alongside the default SQL login. Entra ID types default `ENCRYPT` to `true`.
-- HTTP security: `Host`/`Origin` validation against DNS rebinding, optional bearer token (`MCP_HTTP_AUTH_TOKEN`), and `MCP_HTTP_ALLOWED_HOSTS`. Only `/mcp` is served.
+- Write confirmations use multi-round-trip `input_required` elicitation on 2026-07-28 connections and classic elicitation on 2025-era connections. Clients without elicitation still use `confirmed: true`. The prompt names the target database and table plus the filters, updated columns, row count, or index columns.
+- `SQL_AUTH_TYPE` with `ntlm`, `azure-default` (DefaultAzureCredential / managed identity / `az login`), `azure-service-principal`, and `azure-access-token`, alongside the default SQL login. Entra ID types default `ENCRYPT` to `true` and `TRUST_SERVER_CERTIFICATE` to `false`, so tokens and secrets only travel over a validated TLS connection.
+- HTTP security: `Host`/`Origin` validation against DNS rebinding, optional bearer token (`MCP_HTTP_AUTH_TOKEN`), and `MCP_HTTP_ALLOWED_HOSTS`. Only `/mcp` is served. A non-loopback bind without an `https://` `MCP_BASE_URL` logs a plain-HTTP warning.
 - MCP Apps query-results grid (`ui://mssql/query-results.html`) for `read_data` and `search_data` in hosts that support MCP Apps.
 - Client cancellation now cancels the running SQL request.
 - `read_data` accepts CTEs (`WITH ... SELECT`, including `;WITH`).
@@ -45,6 +45,7 @@ Contains breaking changes (Node.js 22+, HTTP exposure rules); suggested release:
 - Concurrent first requests for a database no longer race to create duplicate connection pools.
 - SQL connection pools are closed on `SIGINT`/`SIGTERM` and when a stdio client disconnects.
 - Rows beyond `MAX_ROWS` skipped column-name sanitization.
+- IPv6 bind hosts (`MCP_HTTP_HOST=::1`) are bracketed in the advertised endpoint URL.
 
 ## [1.6.0] - 2026-07-12
 
